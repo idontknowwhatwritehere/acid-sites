@@ -1,2 +1,16 @@
-# acid-sites
-i‑BuBn acid calibrations and HexBn permeability
+# Калибровка и проницаемость кислот
+
+- [Калибровка кислот](https://idontknowwhatwritehere.github.io/acid-sites/acid-calibration/)
+- [Проницаемость кислот](https://idontknowwhatwritehere.github.io/acid-sites/acid-permeability/)
+
+Репозиторий содержит статические копии проектов Sites. GitHub Pages публикует корень ветки main. Обновляйте копии по запросу, перенося только проверенные версии.
+
+## Подготовка файлов
+
+```sh
+python3 scripts/build-github-pages.py /path/to/calibration/dist /path/to/permeability/dist build
+```
+
+Команда создаёт две папки с относительными путями для публикации. Замените соответствующие папки в репозитории файлами из build. Откройте сборку через локальный HTTP-сервер, проверьте обе страницы и кнопку передачи калибровок. После коммита дождитесь успешной публикации Pages и проверьте публичные адреса.
+
+Версии исходников для текущей сборки: калибровка 90a8de3164cc508516120732c71d36061dc86b06, проницаемость 5e5406cc7866765c6b1297e52355224f1fa8de72.

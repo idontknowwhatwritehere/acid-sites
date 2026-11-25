@@ -1,4 +1,5 @@
-const origin='https://ibu-bn-acid-calibration.nocanbewant.chatgpt.site';
+const calibrationUrl=new URL('../acid-calibration/#hexbn-calibrations',location.href);
+const origin=calibrationUrl.origin;
 const key='hexbn-experiment-v1';
 const base={vd:80,vr:30,cd:0.01,cr:0,area:10.57309,extrapolate:true};
 const fields=[['vd','Объём донора, мл'],['vr','Объём приёмника, мл'],['cd','C донора при t = 0, М'],['cr','C приёмника при t = 0, М'],['area','Площадь мембраны, см²']];
@@ -219,7 +220,7 @@ el('paste-form').onsubmit=e=>{
 };
 el('sync').onclick=()=>{
   clearTimeout(syncTimer);
-  syncWindow=window.open(origin+'/#hexbn-calibrations','hex-calibration-sync');
+  syncWindow=window.open(calibrationUrl.href,'hex-calibration-sync');
   el('sync-status').textContent=syncWindow?'Ожидаю калибровки из i‑BuBn…':'Разреши всплывающее окно, затем повтори синхронизацию.';
   if(syncWindow)syncTimer=setTimeout(()=>{el('sync-status').textContent='Калибровки не получены. Войди в i‑BuBn в этом браузере и повтори.';},20000);
 };
