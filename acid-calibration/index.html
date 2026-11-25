@@ -21,9 +21,8 @@ main{padding:18px 26px 26px}.tabs{display:flex;overflow:auto;gap:4px;border-bott
 .blankbar{display:flex;flex-wrap:wrap;align-items:center;gap:5px 9px;padding:8px 15px;border-bottom:1px solid var(--line);background:#f8fbfd;color:var(--muted);font-size:.8rem}.blankbar label{font-weight:650;color:var(--ink)}.blankbar input{width:78px;padding:3px 5px;border:1px solid #cbd8e3;border-radius:4px;text-align:right;color:var(--blue)}.blankbar small{font-size:.76rem}
 .numeric{margin:0 16px 14px;padding:10px 12px;border:1px solid #cedeeb;border-left:3px solid #229687;background:#f5f9fc;border-radius:5px}.numeric h3{font-size:.79rem;color:var(--muted);margin:0 0 5px;font-weight:650}.numeric-line{font:500 .91rem/1.75 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.numeric-line+.numeric-line{margin-top:4px}.num-token{display:inline-block;padding:0 3px;margin:0 1px;border-radius:3px;font-weight:670;color:#214d8d;background:#e4edfb;white-space:nowrap}.num-token[data-tint="k"]{color:#635293;background:#eee8fa}.num-token[data-tint="signal"]{color:#8a4d14;background:#fff0db}.num-token[data-tint="result"]{color:#096a56;background:#dbf3e9}.num-token[data-tint="fit"]{color:#0e6272;background:#dff2f7}.num-token[tabindex]{cursor:help}.num-token[tabindex]:hover,.num-token:focus-visible{outline:2px solid #118172;outline-offset:1px}.source-highlight{background:#fff1af!important;color:#603a00!important;box-shadow:inset 0 0 0 2px #d6a345!important;border-radius:3px}.source-highlight.point{stroke:#d6a345;stroke-width:4px}
 
-.reference{margin-top:14px}.reference .provenance{border-top:1px solid var(--line);border-bottom:0;padding:11px 16px 13px}.explanations{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;padding:14px 16px}.explanations h3{font-size:.88rem;margin-bottom:4px}.explanations p{color:var(--muted);font-size:.84rem}.explanations p+p{margin-top:5px}
+.reference{margin-top:14px}.reference .provenance{border-top:1px solid var(--line);border-bottom:0;padding:11px 16px 13px}.explanations{padding:14px 16px}.explanations h3{font-size:.88rem;margin-bottom:4px}.explanations p{color:var(--muted);font-size:.84rem}.explanations p+p{margin-top:5px}
 .formula-back{border:1px solid #b8ded3;border-radius:5px;background:var(--light);color:#115d52;padding:4px 8px;font-size:.8rem;font-weight:650}.num-token[data-drill]{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}.source-highlight{position:relative;z-index:1}.num-token[data-action]{cursor:pointer}.formula-back[hidden]{display:none}
-@media(max-width:680px){.explanations{grid-template-columns:1fr}}
 .main-formula{padding:14px 16px;border-bottom:1px solid var(--line)}.main-formula h3{font-size:.93rem}.main-formula p{font-size:.84rem;color:var(--muted)}.main-equation{margin:8px 0;overflow-x:auto;padding:8px 6px;background:#f4f9fc;border-radius:5px;color:var(--active);font-size:clamp(.94rem,2.7vw,1.25rem)}.main-equation math{margin:0}
 #slope-value,#intercept-value{display:inline-block}
 .fraction-part{cursor:pointer}.fraction-part[data-highlight="true"]{background:#e0ecfa;color:#1d4b87}.fraction-part#main-denominator[data-highlight="true"]{background:#e9dff5;color:#65418b}.fraction-controls{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0}.fraction-button{padding:4px 8px;border:1px solid #bcd0e7;border-radius:5px;color:#1d4b87;background:#f0f6fc;font-size:.81rem}.fraction-button#explain-d{border-color:#d7c8e9;color:#65418b;background:#f8f3fb}.fraction-button[data-highlight="true"]{background:#e0ecfa;border-color:#5388c4}.fraction-button#explain-d[data-highlight="true"]{background:#e9dff5;border-color:#9875b9}.fraction-explanation{margin:4px 0 8px}
@@ -77,6 +76,25 @@ main{padding:18px 26px 26px}.tabs{display:flex;overflow:auto;gap:4px;border-bott
 .row-number{display:flex;align-items:center;justify-content:center;gap:2px}
 .remove-row{border:0;background:transparent;border-radius:3px;padding:1px 4px;font-size:1rem;line-height:1.2}
 .remove-row:hover{background:#ffe3e6}
+
+.numeric-fraction{display:inline-grid;grid-template-rows:auto auto;vertical-align:middle;text-align:center;margin:2px 3px;line-height:1.3;max-width:100%}
+.numeric-fraction>span{display:flex;align-items:center;justify-content:center;padding:3px 5px;flex-wrap:wrap;column-gap:4px}
+.numeric-fraction>span:first-child{border-bottom:1px solid currentColor}
+.additional-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+.additional-charts .card-head{display:block}
+.additional-charts .desc{margin-top:3px}
+.additional-charts .plot-wrap{min-height:0;padding:5px 10px 8px}
+.additional-charts .plot{max-height:none}
+.additional-charts .chart-wide{grid-column:1/-1}
+.chart-wide .plot{max-height:420px}
+.chart-curve,.chart-reference{fill:none;stroke-width:2;vector-effect:non-scaling-stroke}
+.chart-reference{stroke:#667c90;stroke-dasharray:5 4}
+.chart-dot{stroke:#fff;stroke-width:1.2}
+.chart-dot:hover{r:6}
+.chart-series{list-style:none;display:flex;flex-wrap:wrap;gap:6px 15px;margin:0;padding:0 16px 13px;color:var(--muted);font-size:.84rem}
+.chart-series li{display:inline-flex;align-items:center;gap:5px}
+.chart-series li::before{content:"";width:16px;border-top:2px solid var(--series-color)}
+@media(max-width:760px){.additional-charts{grid-template-columns:1fr}.additional-charts .plot-wrap{padding-inline:4px}}
 </style>
 </head>
 <body>
@@ -158,6 +176,38 @@ main{padding:18px 26px 26px}.tabs{display:flex;overflow:auto;gap:4px;border-bott
 <p id="symbol-help" class="symbol-help" aria-live="polite" hidden></p><p id="numeric-note" class="numeric-note" hidden></p></div>
 </section>
 <p id="notice" class="notice" role="status"></p>
+<section class="additional-charts" aria-label="Дополнительные графики">
+  <section class="card" aria-labelledby="raw-title">
+    <div class="card-head"><h2 id="raw-title">Исходная калибровка</h2></div>
+    <div class="plot-wrap" id="raw-chart"></div>
+  </section>
+  <section class="card" aria-labelledby="error-title">
+    <div class="card-head"><h2 id="error-title">Ошибка пересчёта концентрации, %</h2></div>
+    <div class="plot-wrap" id="error-chart"></div>
+  </section>
+  <section class="card" aria-labelledby="residual-title">
+    <div class="card-head"><h2 id="residual-title">Остатки по электропроводности</h2></div>
+    <div class="plot-wrap" id="residual-chart"></div>
+  </section>
+  <section class="card" aria-labelledby="species-title">
+    <div class="card-head"><h2 id="species-title">Распределение ионных форм кислоты</h2></div>
+    <div class="plot-wrap" id="species-chart"></div>
+    <ul class="chart-series" id="species-legend" aria-label="Ряды данных" hidden></ul>
+  </section>
+  <section class="card" aria-labelledby="protons-title">
+    <div class="card-head"><h2 id="protons-title">Среднее число диссоциировавших протонов</h2><p class="desc">Без учёта автопротолиза воды</p></div>
+    <div class="plot-wrap" id="protons-chart"></div>
+  </section>
+  <section class="card" aria-labelledby="recovered-title">
+    <div class="card-head"><h2 id="recovered-title">Расчётная концентрация от исходной</h2><p class="desc">Пунктир соответствует y = x</p></div>
+    <div class="plot-wrap" id="recovered-chart"></div>
+  </section>
+  <section class="card chart-wide" aria-labelledby="comparison-title">
+    <div class="card-head"><h2 id="comparison-title">Сравнение калибровок всех кислот</h2><p id="comparison-axis-note" class="desc" hidden></p></div>
+    <div class="plot-wrap" id="comparison-chart"></div>
+    <ul class="chart-series" id="comparison-legend" aria-label="Ряды данных" hidden></ul>
+  </section>
+</section>
 <footer class="card reference" aria-labelledby="reference-title">
   <div class="card-head"><h2 id="reference-title">Пояснения и источники</h2></div>
   <section class="main-formula" aria-labelledby="main-formula-title">
@@ -217,12 +267,8 @@ main{padding:18px 26px 26px}.tabs{display:flex;overflow:auto;gap:4px;border-bott
     </div>
     <p class="main-mode" id="main-mode" aria-live="polite"></p>
   </section>
-  <div class="explanations">
-    <section><h3>Что на осях</h3><p id="axis-explanation"></p></section>
-    <section><h3>Зачем вычитать κ₀ и b</h3><p>Измеренный фон κ₀ вычитается один раз из показаний стандартов и пробы. b — свободный член регрессии.<span id="water-baseline-explanation" hidden> При расчёте по Кольраушу с автопротолизом теоретическая проводимость на оси X выражена как прирост относительно чистой воды.</span></p><p>Если b отрицательное, вычитание превращается в прибавление. При одинаковом фоне для стандартов и пробы поправка сдвигает b, а итоговый пересчёт концентрации сохраняется.</p></section>
-    <section id="physics-explanation" hidden><h3>Две независимые поправки</h3><p>Автопротолиз добавляет [OH⁻] = Kᵥ/[H⁺] в баланс зарядов. При 25 °C Kᵥ = 10⁻¹⁴ (моль/л)². Закон Кольрауша суммирует λ°ᵢcᵢ для H⁺ и всех анионов кислоты. Вклад OH⁻ добавляется, если включён автопротолиз. Используются предельные молярные проводимости и приближение разбавленного раствора.</p><p><a href="https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication260-142.pdf" target="_blank" rel="noopener noreferrer">NIST SP 260-142 · Kᵥ, λ° H⁺ и OH⁻ при 25 °C</a></p></section>
-<section><h3>Что такое N и D</h3><p>D складывает вклады всех форм кислоты. В N эти вклады умножены на число отданных протонов. N/D показывает, сколько протонов в среднем отдала молекула. Нажми на фиолетовое число N или D, чтобы увидеть его расчёт.</p></section>
-    <section><h3>Как оценивать результат</h3><p>R² показывает, насколько близко точки лежат к прямой. Точность обратного расчёта видно по разнице между C стандарта и C по тренду. Особенно важна эта разница для самых разбавленных точек.</p></section>
+  <div class="explanations" id="physics-explanation" hidden>
+    <section><h3>Две независимые поправки</h3><p>Автопротолиз добавляет [OH⁻] = Kᵥ/[H⁺] в баланс зарядов. При 25 °C Kᵥ = 10⁻¹⁴ (моль/л)². Закон Кольрауша суммирует λ°ᵢcᵢ для H⁺ и всех анионов кислоты. Вклад OH⁻ добавляется, если включён автопротолиз. Используются предельные молярные проводимости и приближение разбавленного раствора.</p><p><a href="https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication260-142.pdf" target="_blank" rel="noopener noreferrer">NIST SP 260-142 · Kᵥ, λ° H⁺ и OH⁻ при 25 °C</a></p></section>
   </div><div class="provenance"><a id="pk-source" target="_blank" rel="noopener noreferrer"></a><small id="range-source"></small></div></footer>
 </main>
 <script id="seed" type="application/json">{"Щавелевая":{"pka":[1.25,4.27],"rows":[[0.001,300],[0.0007,214],[0.0005,157.9],[0.0003,100.7],[0.0001,39.9],[7e-05,29.5],[5e-05,22.4],[3e-05,15.5],[1e-05,5.4]]},"Янтарная":{"pka":[4.21,5.64],"rows":[[0.001,85.2],[0.0007,69.6],[0.0005,57.3],[0.0003,42.4],[0.0001,21.3],[7e-05,16.8],[5e-05,13.2],[3e-05,9.1],[1e-05,4.3]]},"Яблочная":{"pka":[3.459,5.097],"rows":[[0.001,179.2],[0.0007,137.4],[0.0005,109.6],[0.0003,76.4],[0.0001,33.4],[7e-05,25.4],[5e-05,19.4],[3e-05,12.8],[1e-05,5.8]]},"Глутаровая":{"pka":[4.34,5.27],"rows":[[0.001,75.8],[0.0007,61.9],[0.0005,56.1],[0.0003,38.4],[0.0001,20],[7e-05,16.75],[5e-05,13.2],[3e-05,9.1],[1e-05,5.7]]},"Уксусная":{"pka":[4.757],"rows":[[0.001,52],[0.0007,42.2],[0.0005,35.3],[0.0003,26.5],[0.0001,13.8],[7e-05,11.2],[5e-05,9.3],[3e-05,6.7],[1e-05,4]]},"Муравьиная":{"pka":[3.75],"rows":[[0.001,152.1],[0.0007,111],[0.0005,89.4],[0.0003,60],[0.0001,28.9],[7e-05,22.1],[5e-05,18],[3e-05,11.3],[1e-05,4.6]]},"Миндальная":{"pka":[3.407],"rows":[[0.001,180],[0.0007,136.2],[0.0005,108],[0.0003,72.1],[0.0001,31],[7e-05,23.1],[5e-05,17.4],[3e-05,12.3],[1e-05,3.6]]},"Лимонная":{"pka":[3.13,4.76,6.4],"rows":[[0.001,220],[0.0007,166],[0.0005,132],[0.0003,89.5],[0.0001,36.4],[7e-05,29.1],[5e-05,21.9],[3e-05,14.3],[1e-05,5.7]]},"Малоновая":{"pka":[2.847,5.696],"rows":[[0.001,281],[0.0007,203],[0.0005,153],[0.0003,99.8],[0.0001,37.6],[7e-05,26.9],[5e-05,19.7],[3e-05,10.3],[1e-05,5.1]]},"Пропионовая":{"pka":[4.88],"rows":[[0.001,42.4],[0.0007,35.2],[0.0005,29.3],[0.0003,22.1],[0.0001,13.8],[7e-05,9.9],[5e-05,8.5],[3e-05,6],[1e-05,3.3]]},"Винная":{"pka":[3.03,4.37],"rows":[[0.001,247],[0.0007,186.4],[0.0005,142],[0.0003,98.6],[0.0001,43.9],[7e-05,33.9],[5e-05,26.2],[3e-05,17.3],[1e-05,7.6]]},"Адипиновая":{"pka":[4.42,5.42],"rows":[[0.001,66.6],[0.0007,54.9],[0.0005,45.5],[0.0003,34.6],[0.0001,18.1],[7e-05,14.7],[5e-05,13.1],[3e-05,8.7],[1e-05,4.5]]}}</script>
@@ -380,7 +426,7 @@ let colorAcid;
 function persist() {
   try { localStorage.setItem(storageKey, JSON.stringify(records)); } catch {}
 }
-function compute(name) {
+function compute(name, {fitOnly=false}={}) {
   const record = records[name];
   const blankText = String(record.blank ?? defaultBlank).trim();
   const blankValue = parseNumber(blankText);
@@ -404,6 +450,7 @@ function compute(name) {
   });
   const points = rows.filter(row => row.x !== null && Number.isFinite(row.x) && row.raw !== null && row.raw >= 0);
   const line = fit(points);
+  if(fitOnly) return {points,line,lambdas};
   for (const row of rows) row.back = row.raw !== null && row.raw >= 0 ? invert(row.y,line,k,water,lambdas) : null;
   for (const point of points) point.diagnostics=diagnose(point,line);
   return {k,rows,points,line,blank,hasBlank,blankInvalid,water,wantIons,lambdas,missing,entries};
@@ -594,11 +641,6 @@ function refresh() {
     paintSelection();
   }
   if(model.wantIons&&model.missing.length)el('ion-editor').open=true;
-  el('axis-explanation').textContent=(model.lambdas?
-    'По X — расчётная электропроводность по Кольраушу, мкСм/см. ':
-    'По X — расчётная [H⁺], мкмоль/л. ') +
-    'По Y — измеренная электропроводность с поправкой на измеренный фон κ₀, если он задан.';
-  el('water-baseline-explanation').hidden=!(model.water&&model.lambdas);
   el('model-status').textContent=model.wantIons&&model.missing.length?
     'Ось X: [H⁺]. Для суммы ионов укажи λ°: '+model.missing.map(e=>e[0]).join(', ')+'.':
     model.lambdas?'Ось X: расчётная проводимость всех ионов.':'Ось X: расчётная [H⁺].';
@@ -609,6 +651,7 @@ function refresh() {
     model.points.length < model.rows.length ? 'Строки с пустыми или некорректными данными исключены из тренда.' :
     model.line && !(model.line.a>0) ? 'Обратный пересчёт требует положительного наклона тренда.' : '';
   renderChart();
+  renderAdditionalCharts();
   showFormula();
 }
 function mount() {
@@ -724,6 +767,155 @@ function renderChart() {
   });
   paintPoint();
 }
+const chartColors=['#1c5395','#087c71','#9f3c74','#aa530b','#6844aa','#956b00',
+  '#176e97','#ac343b','#53732a','#5343a3','#7b4f34','#246b58'];
+
+function drawAdditionalChart(id, {xLabel,yLabel,dots=[],curves=[],reference=[],logX=false,
+    xRange,yRange,centerY=false,empty='Недостаточно данных для графика.'}) {
+  const host=el(id+'-chart');
+  const legend=el(id+'-legend');
+  if(legend){
+    legend.replaceChildren(...curves.map(series=>{
+      const item=make('li',{textContent:series.label});
+      item.style.setProperty('--series-color',series.color);
+      return item;
+    }));
+    legend.hidden=!curves.length;
+  }
+  if(!dots.length&&!curves.length){
+    host.replaceChildren(make('p',{className:'plot-empty',textContent:empty}));
+    return;
+  }
+  const width=570,height=295,left=85,right=536,top=16,bottom=233;
+  const all=[...dots,...curves.flatMap(series=>series.points),...reference];
+  const xPosition=x=>logX?Math.log10(x):x;
+  const xValues=all.map(({x})=>xPosition(x));
+  const yValues=all.map(({y})=>y);
+  const [xmin,xmax]=xRange ?? (logX?
+    [Math.floor(Math.min(...xValues)),Math.max(Math.floor(Math.min(...xValues))+1,Math.ceil(Math.max(...xValues)))]:
+    [0,axisCeiling(Math.max(...xValues)*1.03)]);
+  const yPeak=axisCeiling(Math.max(...yValues.map(Math.abs))*1.06);
+  const [ymin,ymax]=yRange ?? (centerY?[-yPeak,yPeak]:[Math.min(0,...yValues),yPeak]);
+  const px=x=>left+(right-left)*(xPosition(x)-xmin)/(xmax-xmin);
+  const py=y=>bottom-(bottom-top)*(y-ymin)/(ymax-ymin);
+  const yTicks=Array.from({length:6},(_,i)=>ymin+(ymax-ymin)*i/5);
+  const logStep=Math.max(1,Math.ceil((xmax-xmin)/5));
+  const xTicks=logX?Array.from({length:Math.floor((xmax-xmin)/logStep)+1},(_,i)=>10**(xmin+i*logStep)):
+    Array.from({length:6},(_,i)=>xmin+(xmax-xmin)*i/5);
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','plot');
+  svg.setAttribute('viewBox','0 0 '+width+' '+height);
+  svg.setAttribute('role','img');
+  svg.setAttribute('aria-labelledby',id+'-title');
+  svg.setAttribute('aria-label',xLabel+'; '+yLabel);
+  function shape(tag,attributes,label,parent=svg) {
+    const node=document.createElementNS(svg.namespaceURI,tag);
+    for(const [name,value] of Object.entries(attributes))node.setAttribute(name,value);
+    if(label!==undefined)node.textContent=label;
+    parent.append(node);
+    return node;
+  }
+  const formatTick=value=>value!==0&&(Math.abs(value)<0.001||Math.abs(value)>=1e6)?
+    value.toExponential(1).replace('.0e','e').replace('.',','):fmt(value,4);
+  for(const x of xTicks){
+    shape('path',{class:'grid',d:'M'+px(x)+' '+top+'V'+bottom});
+    shape('text',{x:px(x),y:bottom+20,'text-anchor':'middle'},formatTick(x));
+  }
+  for(const y of yTicks){
+    shape('path',{class:'grid',d:'M'+left+' '+py(y)+'H'+right});
+    shape('text',{x:left-8,y:py(y)+4,'text-anchor':'end'},formatTick(y));
+  }
+  shape('path',{class:'axis',fill:'none',d:'M'+left+' '+top+'V'+bottom+'H'+right});
+  function drawLine(points,attributes,label) {
+    const path=points.map(({x,y},i)=>(i?'L':'M')+px(x)+' '+py(y)).join(' ');
+    const layer=shape('path',{...attributes,d:path});
+    if(label)shape('title',{},label,layer);
+  }
+  if(centerY)shape('line',{class:'chart-reference',x1:left,x2:right,y1:py(0),y2:py(0)});
+  if(reference.length)drawLine(reference,{class:'chart-reference'});
+  for(const series of curves){
+    drawLine(series.points,{class:'chart-curve',stroke:series.color,
+      'stroke-dasharray':series.dash ?? 'none'},series.label);
+  }
+  for(const dot of dots){
+    const point=shape('circle',{class:'chart-dot',fill:chartColors[0],cx:px(dot.x),cy:py(dot.y),r:4.5});
+    shape('title',{},'Стандарт '+(dot.i+1)+' · '+formatTick(dot.x)+'; '+fmt(dot.y,6),point);
+  }
+  shape('text',{class:'axis-label',x:(left+right)/2,y:height-11,'text-anchor':'middle'},xLabel);
+  const yMiddle=(top+bottom)/2;
+  shape('text',{class:'axis-label',x:19,y:yMiddle,'text-anchor':'middle',
+    transform:'rotate(-90 19 '+yMiddle+')'},yLabel);
+  host.replaceChildren(svg);
+}
+
+function renderAdditionalCharts() {
+  const {k,rows,points,line,lambdas}=model;
+  const concentration='C стандарта, моль/л';
+  const signal='κ измеренная, мкСм/см';
+  const hydrogenLabel='[H⁺] расчётная, мкмоль/л';
+  const theoryLabel='κ расчётная, мкСм/см';
+  const standards=rows.filter(row=>row.c>0);
+  const recovered=standards.filter(row=>row.back?.c>0);
+  const dot=(row,x,y)=>({i:row.i,x,y});
+  drawAdditionalChart('raw',{xLabel:concentration,yLabel:signal,
+    dots:standards.filter(row=>row.raw!==null&&row.raw>=0).map(row=>dot(row,row.c,row.raw))});
+  drawAdditionalChart('error',{xLabel:concentration+' (лог. шкала)',yLabel:'Ошибка, %',logX:true,centerY:true,
+    dots:recovered.map(row=>dot(row,row.c,100*(row.back.c/row.c-1))).filter(point=>Number.isFinite(point.y))});
+  drawAdditionalChart('residual',{xLabel:lambdas?theoryLabel:hydrogenLabel,yLabel:'Остаток κ, мкСм/см',centerY:true,
+    dots:line?points.map(row=>dot(row,row.x,row.y-(line.a*row.x+line.b))):[]});
+
+  const pka=records[active].pka.map(parseNumber);
+  const pHMin=k?Math.min(0,Math.floor(Math.min(...pka))-2):0;
+  const pHMax=k?Math.max(14,Math.ceil(Math.max(...pka))+2):14;
+  const formulas=[['HA','A⁻'],['H₂A','HA⁻','A²⁻'],['H₃A','H₂A⁻','HA²⁻','A³⁻']];
+  const speciesCurves=k?formulas[pka.length-1].map((label,index)=>({
+    label,color:chartColors[index],
+    points:Array.from({length:141},(_,i)=>{
+      const x=pHMin+(pHMax-pHMin)*i/140;
+      return {x,y:species(10**(6-x),k).fractions[index]*100};
+    }),
+  })):[];
+  drawAdditionalChart('species',{xLabel:'pH',yLabel:'Доля формы, %',
+    xRange:[pHMin,pHMax],yRange:[0,100],curves:speciesCurves,empty:'Введи pKₐ для каждой ступени диссоциации.'});
+
+  const concentrations=standards.map(row=>row.c);
+  const min=Math.min(...concentrations),max=Math.max(...concentrations);
+  const protonsAt=x=>hydrogen(x,k,false)/(x*1e6);
+  const protonCurve=k&&max>min?Array.from({length:101},(_,i)=>{
+    const x=10**(Math.log10(min)+(Math.log10(max)-Math.log10(min))*i/100);
+    return {x,y:protonsAt(x)};
+  }):[];
+  drawAdditionalChart('protons',{xLabel:'C кислоты, моль/л (лог. шкала)',yLabel:'h/C, протонов на молекулу',
+    logX:true,yRange:[0,pka.length],curves:protonCurve.length?[{color:chartColors[0],points:protonCurve}]:[],
+    dots:k?standards.map(row=>dot(row,row.c,protonsAt(row.c))).filter(point=>Number.isFinite(point.y)):[]});
+
+  const recoveredMax=axisCeiling(Math.max(0,...recovered.flatMap(row=>[row.c,row.back.c]))*1.03);
+  drawAdditionalChart('recovered',{xLabel:concentration,yLabel:'C по тренду, моль/л',
+    xRange:[0,recoveredMax],yRange:[0,recoveredMax],reference:[{x:0,y:0},{x:recoveredMax,y:recoveredMax}],
+    dots:recovered.map(row=>dot(row,row.c,row.back.c))});
+
+  const calibrations=names.map((name,index)=>({name,index,
+    result:name===active?model:compute(name,{fitOnly:true})})).filter(({result})=>result.line);
+  const commonTheory=calibrations.length>0&&calibrations.every(({result})=>result.lambdas);
+  const comparison=calibrations.flatMap(({name,index,result})=>{
+    const refit=!commonTheory&&result.lambdas;
+    const calibrationPoints=refit?result.points.map(row=>({x:row.h,y:row.y})):result.points;
+    const calibrationLine=refit?fit(calibrationPoints):result.line;
+    if(!calibrationLine)return [];
+    const xValues=calibrationPoints.map(row=>row.x);
+    return [{
+      color:chartColors[index%chartColors.length],dash:[undefined,'7 4','2 3'][Math.floor(index/4)%3],
+      label:acidTitle(name),
+      points:[Math.min(...xValues),Math.max(...xValues)].map(x=>({x,y:calibrationLine.a*x+calibrationLine.b})),
+    }];
+  });
+  const note=el('comparison-axis-note');
+  note.hidden=!model.wantIons||commonTheory||!comparison.length;
+  note.textContent='Для всех кислот использована ось [H⁺], поскольку для части калибровок не заданы все λ°.';
+  drawAdditionalChart('comparison',{xLabel:commonTheory?theoryLabel:hydrogenLabel,
+    yLabel:'κ с учётом фона, мкСм/см',curves:comparison});
+}
+
 function drill(kind) {
   drillOrigin = {...selected};
   select(kind);
@@ -790,6 +982,15 @@ function numberToken(value, tint, ids=[], tooltip='', scientific=false, destinat
   wrapper.append(span,label);
   return wrapper;
 }
+function numericFraction(numerator,denominator) {
+  const fraction=make('span',{className:'numeric-fraction'});
+  for(const contents of [numerator,denominator]){
+    const part=make('span');
+    part.append(...[contents].flat());
+    fraction.append(part);
+  }
+  return fraction;
+}
 function showNumeric(kind,data,line,k,step) {
   document.querySelectorAll('.source-highlight').forEach(node=>node.classList.remove('source-highlight'));
   const host=el('numeric');
@@ -848,6 +1049,7 @@ function showNumeric(kind,data,line,k,step) {
   const ySources=model.points.map(p=>'reading-'+p.i);
   const fitSources=[...xSources,...ySources,...(model.hasBlank?['blank']:[])];
   const token=numberToken;
+  const frac=numericFraction;
   const fixed=(value,label)=>token(value,'fixed',[],label);
   const scale=()=>fixed('10⁶','перевод единиц');
   const divideConductivity=()=>fixed('1000','перевод в мкСм/см');
@@ -933,22 +1135,24 @@ function showNumeric(kind,data,line,k,step) {
       const values=species(data.h,k);
       const deps=[...kSources,'h-'+i];
       const oh=model.water?WATER.kw/data.h:0;
-      if(model.water)row(symbol('[OH⁻]'),' = ',symbol('Kᵥ'),' / ',symbol('[H⁺]'),' ≈ ',kw(),' / ',hValue(),
+      if(model.water)row(symbol('[OH⁻]'),' = ',frac(symbol('Kᵥ'),symbol('[H⁺]')),' ≈ ',frac(kw(),hValue()),
         ' ≈ ',token(oh,'result',['water-mode','h-'+i],'[OH⁻] воды'),' мкмоль/л');
       row(symbol('[H⁺]'),' = ',...(model.water?[symbol('[OH⁻]'),' + ']:[]),
-          symbol('C'),' × ',symbol('N'),' / ',symbol('D'),' ≈ ',
+          symbol('C'),' × ',frac(symbol('N'),symbol('D')),' ≈ ',
           ...(model.water?[token(oh,'fit',['water-mode','h-'+i],'[OH⁻] воды'),' + ']:[]),
-          concentration(c),' × ',token(values.num,'k',deps,'Числитель N',true,'num'),' / ',
-          token(values.den,'k',deps,'Знаменатель D',true,'den'),' ≈ ',hValue(),' мкмоль/л');
+          concentration(c),' × ',frac(token(values.num,'k',deps,'Числитель N',true,'num'),
+            token(values.den,'k',deps,'Знаменатель D',true,'den')),' ≈ ',hValue(),' мкмоль/л');
     }else if(k[1]===0){
       const k1=()=>kProduct(1);
-      row(symbol('[H⁺]'),' = (√(',symbol('K₁'),'² + 4 × ',symbol('K₁'),' × ',symbol('C'),') − ',symbol('K₁'),') / 2 ≈ (√(',k1(),'² + ',fixed(4,'коэффициент корня'),' × ',k1(),' × ',concentration(c),') − ',k1(),') / ',fixed(2,'делитель'),' ≈ ',hValue(),' мкмоль/л');
+      row(symbol('[H⁺]'),' = ',frac(['√(',symbol('K₁'),'² + 4 × ',symbol('K₁'),' × ',symbol('C'),') − ',symbol('K₁')],'2'),
+          ' ≈ ',frac(['√(',k1(),'² + ',fixed(4,'коэффициент корня'),' × ',k1(),' × ',concentration(c),') − ',k1()],fixed(2,'делитель')),
+          ' ≈ ',hValue(),' мкмоль/л');
     }else{
       const values=species(data.h,k);
       const deps=[...kSources,'h-'+i];
-      row(symbol('[H⁺]'),' = ',symbol('C'),' × ',symbol('N'),' / ',symbol('D'),' ≈ ',concentration(c),' × ',
-          token(values.num,'k',deps,'Числитель N',true,'num'),' / ',
-          token(values.den,'k',deps,'Знаменатель D',true,'den'),' ≈ ',hValue(),' мкмоль/л');
+      row(symbol('[H⁺]'),' = ',symbol('C'),' × ',frac(symbol('N'),symbol('D')),' ≈ ',concentration(c),' × ',
+          frac(token(values.num,'k',deps,'Числитель N',true,'num'),
+            token(values.den,'k',deps,'Знаменатель D',true,'den')),' ≈ ',hValue(),' мкмоль/л');
     }
   }else if(kind==='fit' && line) {
     row(symbol('a'),' = ',token(line.sxy,'input',fitSources,'Сумма по точкам калибровки Sxy',true),' / ',
@@ -977,8 +1181,8 @@ function showNumeric(kind,data,line,k,step) {
         ' мкСм/см → ',symbol('[H⁺]'),' ≈ ',h(),' мкмоль/л');
       const oh=()=>token(result.oh,'fit',['water-mode',...hSources],'[OH⁻] воды');
       row(symbol('C'),' = ',...(model.water?['(',symbol('[H⁺]'),' − ',symbol('[OH⁻]'),')']:[symbol('[H⁺]')]),
-          ' × ',symbol('D'),' / ',symbol('N'),' ÷ 10⁶ ≈ ',...(model.water?['(',h(),' − ',oh(),')']:[h()]),' × ',token(result.den,'k',[...hSources,...kSources],'Знаменатель D',true,'den'),' / ',
-          token(result.num,'k',[...hSources,...kSources],'Числитель N',true,'num'),' ÷ ',scale(),' ≈ ',
+          ' × ',frac(symbol('D'),symbol('N')),' ÷ 10⁶ ≈ ',...(model.water?['(',h(),' − ',oh(),')']:[h()]),' × ',frac(token(result.den,'k',[...hSources,...kSources],'Знаменатель D',true,'den'),
+            token(result.num,'k',[...hSources,...kSources],'Числитель N',true,'num')),' ÷ ',scale(),' ≈ ',
           token(result.c,'result',probe?[]:['back-'+i],'Концентрация по тренду',true),' моль/л');
       if(!probe&&data.c>0)setNote('Отклонение от стандарта '+fmt(100*(result.c/data.c-1),4)+'%.');
       if(probe && model.points.length && (raw<Math.min(...model.points.map(p=>p.raw))||raw>Math.max(...model.points.map(p=>p.raw)))) setNote('Показание вне диапазона стандартов.');
