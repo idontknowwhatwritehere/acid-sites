@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Проницаемость кислот</title><link rel="stylesheet" href="style.css">
+<style>
+.formula-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:10px;padding:12px 15px}
+.formula-card{background:#f5f9fc;border:1px solid var(--line);border-radius:6px;padding:10px}
+.formula-card h3{font-size:.88rem;margin-bottom:7px}
+.formula-terms{display:flex;flex-wrap:wrap;align-items:center;gap:4px;color:var(--active);font-size:.9rem}
+.formula-term{display:inline-flex;flex-direction:column;align-items:center;gap:2px;padding:4px 6px;border:1px solid #cbdde8;border-radius:5px;background:#fff;color:var(--active);font-weight:700}
+.formula-term small{font-size:.7rem;color:var(--muted);font-weight:500}
+.formula-term:hover,.formula-term[aria-pressed=true]{background:var(--light);border-color:var(--teal)}
+.formula-selection{margin:0 15px 12px;padding:7px 9px;border-left:3px solid var(--teal);font-size:.83rem;color:var(--muted);overflow-wrap:anywhere}
+.formula-tooltip{position:fixed;z-index:20;width:max-content;max-width:min(370px,calc(100vw - 16px));padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);box-shadow:0 4px 18px #162b3f29;pointer-events:none;overflow-wrap:anywhere;font-size:.8rem}
+.workspace{align-items:start}
+.hex-plot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.hex-plot-group{margin-top:16px}.hex-plot-group>h2{font-size:1rem;margin:0 0 8px}
+.hex-plot-panel{min-width:0}.hex-plot-panel h3{font-size:.92rem;padding:11px 15px 0}
+.hex-plot-panel+.hex-plot-panel{border-top:1px solid var(--line)}
+.hex-plot-grid .hex-plot-panel{border-top:1px solid var(--line)}
+.hex-plot-panel .plot-wrap{min-height:0;padding:0 8px}
+@media(max-width:740px){.hex-plot-grid{grid-template-columns:1fr}}
+.calculation-steps{padding:0 18px 10px 38px;margin:10px 0;font-size:.87rem}.calculation-steps li+li{margin-top:7px}.calculation-steps p{overflow-wrap:anywhere;color:var(--muted)}
+.top-inner{justify-content:space-between}.top-actions{margin-left:0}.hex-nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.hex-nav button[aria-pressed=true]{background:var(--active);color:#fff}.hex-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}.hex-toolbar select{max-width:100%;padding:5px 8px}.hex-toolbar .sync{margin-left:auto}.parameters{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:8px;padding:12px 15px;border-bottom:1px solid var(--line)}.parameters label{display:grid;gap:3px;font-size:.84rem}.parameters input{width:100%;padding:4px 6px;border:1px solid #cbd8e3;border-radius:4px;color:var(--blue)}.hex-sheet{min-width:560px}.hex-sheet td.output{padding:5px 7px}.hex-sheet tr[data-outside=true] td{background:#fff0d6}.hex-sheet tr[data-selected=true] th{box-shadow:inset 3px 0 var(--teal)}.hex-sheet th button{max-width:100%;background:transparent;border:0;color:inherit;font-size:inherit}.hex-sheet td:last-child{white-space:normal;text-align:left}.hex-sheet .output{font-size:.81rem}.hex-sheet caption{text-align:left;padding:8px 15px;color:var(--muted)}.hex-actions{display:flex;gap:8px;flex-wrap:wrap;padding:10px 15px;border-top:1px solid var(--line)}.hex-actions label{display:flex;align-items:center;gap:5px;font-size:.85rem}.hex-stats{padding:10px 15px;display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px}.hex-stats div{padding:7px;background:#f0f5fa;border-radius:5px}.hex-stats dt{color:var(--muted);font-size:.78rem}.hex-stats dd{margin:0;font-variant-numeric:tabular-nums}.hex-foot{margin:0 15px 12px;color:var(--muted);font-size:.8rem}.hex-detail{white-space:pre-line;overflow-wrap:anywhere}.hex-plot-point{cursor:pointer}.hex-plot-point[aria-pressed=true]{stroke:#122c40;stroke-width:3}.hex-method a{color:#115d52}.hex-paste textarea{width:100%;min-height:7rem;resize:vertical;padding:6px}.hex-paste p{font-size:.85rem;color:var(--muted)}.hex-toolbar label{display:flex;align-items:center;gap:6px}
+</style></head><body>
+<header class="top"><div class="top-inner"><div><h1>Проницаемость кислот</h1><p class="project">Кондуктометрический эксперимент · Кислоты1.xlsx</p></div></div></header>
+<main>
+<nav class="hex-nav" aria-label="Разделы">
+<button class="action" id="calibration-view" type="button" aria-pressed="false">Калибровки кислот</button>
+<button class="action" id="permeability-view" type="button" aria-pressed="true">Пересчёт проницаемости</button>
+</nav>
+<div class="hex-toolbar">
+<label>Кислота <select id="acid"></select></label>
+<label id="series-control">Серия <select id="series"></select></label>
+<button class="action sync" id="sync" type="button">Подтянуть калибровки i‑BuBn</button>
+</div>
+<p class="hex-foot" id="sync-status" role="status"></p>
+<div class="workspace">
+<section class="card" aria-labelledby="sheet-title">
+<div class="card-head"><h2 id="sheet-title">Измерения</h2><p class="desc" id="provenance"></p></div>
+<div class="parameters" id="parameters"></div>
+<div class="scroller"><table class="sheet hex-sheet" id="sheet"><thead></thead><tbody></tbody></table></div>
+<div class="hex-actions" id="actions">
+<button class="action" id="add" type="button">+ Строка</button>
+<button class="action" id="paste" type="button">Вставить из Excel</button>
+<label><input id="extrapolate" type="checkbox">Учитывать экстраполяцию</label>
+</div>
+</section>
+<section class="card plot-card" aria-labelledby="plot-title">
+<div class="card-head plot-header"><h2 id="plot-title">График</h2><span class="metric" id="result"></span></div>
+<div id="plot"></div>
+<dl class="hex-stats" id="statistics"></dl>
+<p class="hex-foot" id="fit-note" role="status"></p>
+</section>
+</div>
+<div id="other-plots"></div>
+<section class="card inspector" aria-labelledby="formula-block-title">
+<div class="card-head"><h2 id="formula-block-title"><span class="fx" aria-hidden="true">fx</span>Основные формулы</h2></div>
+<div class="formula-grid" id="formula-grid"></div>
+<p class="formula-selection" id="formula-selection" aria-live="polite">Выбери член формулы, чтобы закрепить значение и источник.</p>
+</section>
+<section class="card inspector" aria-labelledby="steps-title">
+<div class="card-head"><h2 id="steps-title">Поэтапный расчёт</h2><p class="desc" id="step-row"></p></div>
+<ol id="calculation-steps" class="calculation-steps"></ol>
+</section>
+<section class="card inspector hex-method">
+<div class="card-head"><h2>Методика и подстановка чисел</h2></div>
+<div class="main-formula" id="method"></div>
+<div class="numeric"><h3 id="detail-title">Подстановка для точки</h3><p id="detail" class="numeric-line hex-detail" aria-live="polite"></p></div>
+</section>
+</main>
+<dialog class="editor-dialog hex-paste" id="paste-dialog" aria-labelledby="paste-title">
+<form id="paste-form"><h2 id="paste-title">Вставить из Excel</h2><label>Время и проводимость<textarea id="paste-text" required placeholder="5&#9;32,5&#10;10&#9;54,6"></textarea></label>
+<p>Первый столбец — минуты, второй — мкСм/см. Вставка заменяет строки выбранной серии. Можно включить строку заголовков.</p><p id="paste-error" role="alert"></p>
+<div class="dialog-actions"><button type="button" class="action secondary" id="paste-cancel">Отмена</button><button type="submit" class="action">Заменить таблицу</button></div></form></dialog>
+<div class="formula-tooltip" id="formula-tooltip" role="tooltip" hidden></div>
+<script src="data.js"></script><script src="model.js"></script><script src="formulas.js"></script><script src="plots.js"></script><script src="app.js"></script></body></html>

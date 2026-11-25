@@ -1,1 +1,50 @@
-<!doctype html><html lang="ru"><meta charset="utf-8"><title>Калибровки и проницаемость кислот</title><h1>Калибровки и проницаемость кислот</h1><ul><li><a href="./ibu-bn/">Калибровка кислот</a></li><li><a href="./hexbn/">Проницаемость кислот</a></li></ul></html>
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Калибровочные графики i‑BuBn и расчёт проницаемости кислот для опытов HexBn.">
+<title>Калибровка и проницаемость кислот</title>
+<style>
+:root{color-scheme:light;--ink:#172f3e;--muted:#4a6675;--line:#d2e1e5;--teal:#075f59;--paper:#fff;--blue:#24498c;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:linear-gradient(180deg,#e3f0ee 0,#f3f7f8 28rem);color:var(--ink)}
+main{width:min(1080px,100% - 40px);margin-inline:auto;padding:clamp(42px,9vw,104px) 0 44px}
+h1,h2,p{margin:0}
+h1{max-width:740px;font-size:clamp(2.2rem,5.4vw,4.25rem);line-height:1.04;letter-spacing:-.055em;font-weight:750;text-wrap:balance}
+.intro{max-width:630px;margin-top:18px;color:var(--muted);font-size:clamp(1rem,2vw,1.15rem);line-height:1.55}
+.tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:clamp(26px,5vw,48px)}
+.tool{display:flex;flex-direction:column;align-items:flex-start;min-width:0;border:1px solid var(--line);border-top:4px solid var(--accent);border-radius:14px;background:var(--paper);padding:clamp(21px,3.5vw,33px);box-shadow:0 10px 28px #18384c0c;--accent:var(--teal);--pale:#e5f4f0}
+.tool.permeability{--accent:var(--blue);--pale:#e9effb}
+.expression{display:inline-block;padding:7px 11px;margin-bottom:19px;border-radius:7px;background:var(--pale);color:var(--accent);font:600 1rem ui-monospace,SFMono-Regular,Consolas,monospace}
+h2{font-size:clamp(1.32rem,2.6vw,1.78rem);line-height:1.2;letter-spacing:-.035em}
+.tool p{margin:9px 0 23px;color:var(--muted);font-size:1rem;line-height:1.55}
+.tool a{margin-top:auto;display:inline-block;padding:10px 14px;border-radius:7px;background:var(--accent);color:#fff;text-decoration:none;font-size:.94rem;font-weight:680}
+.tool a:hover{text-decoration:underline;text-underline-offset:3px}
+.tool a:focus-visible{outline:3px solid var(--accent);outline-offset:4px}
+@media(max-width:650px){.tools{grid-template-columns:1fr;gap:13px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Калибровка и проницаемость кислот</h1>
+<p class="intro">По электропроводности определяй концентрацию кислоты, затем рассчитывай её перенос через мембрану.</p>
+</header>
+<div class="tools">
+<article class="tool">
+<span class="expression" aria-label="Проводимость и концентрация">κ → C</span>
+<h2>Калибровка кислот</h2>
+<p>Редактируй стандарты, строй калибровочную прямую и проверяй, какие точки влияют на результат.</p>
+<a href="./acid-calibration/">Открыть калибровку</a>
+</article>
+<article class="tool permeability">
+<span class="expression" aria-label="Концентрация во времени и проницаемость">C(t) → P</span>
+<h2>Проницаемость кислот</h2>
+<p>Выбери кислоту и серию HexBn, задай параметры опыта и проследи расчёт проницаемости по графикам и формулам.</p>
+<a href="./acid-permeability/">Рассчитать проницаемость</a>
+</article>
+</div>
+</main>
+</body>
+</html>
