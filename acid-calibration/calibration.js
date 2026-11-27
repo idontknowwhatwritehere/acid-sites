@@ -196,7 +196,7 @@ function persist() {
     return false;
   }
 }
-function compute(name) {
+function compute(name,advancedMode=advanced) {
   const record = records[name];
   const blankText = String(record.blank ?? defaultBlank).trim();
   const blankValue = parseNumber(blankText);
@@ -204,8 +204,8 @@ function compute(name) {
   const hasBlank = blankText !== '' && !blankInvalid;
   const blank = hasBlank ? blankValue : 0;
   const k = constants(record.pka);
-  const water=advanced&&el('water-mode').checked;
-  const wantIons=advanced&&el('ion-mode').checked;
+  const water=advancedMode&&el('water-mode').checked;
+  const wantIons=advancedMode&&el('ion-mode').checked;
   const entries=ionEntries(name);
   const lambdaValues=entries.map((entry,i)=>parseNumber(record.lambda?.[i] ?? (entry[1] ?? '')));
   const missing=entries.filter((_,i)=>!(lambdaValues[i]>0));
@@ -1193,6 +1193,47 @@ el('export-errors').onclick=()=>{
 el('export-cancel').onclick=()=>el('export-dialog').close();
 for(const [id,checked] of [['export-all',true],['export-none',false]])
   el(id).onclick=()=>exportAcids.querySelectorAll('input').forEach(input=>{input.checked=checked;});
+const sheetsAcids=el('sheets-acids');
+el('export-sheets').onclick=()=>{
+  const previous=new Map([...sheetsAcids.querySelectorAll('input')].map(input=>[input.value,input.checked]));
+  sheetsAcids.replaceChildren(...names.map(name=>exportChoice(name,acidTitle(name),previous.get(name)??name===active)));
+  el('sheets-notice').textContent='';
+  el('sheets-dialog').showModal();
+};
+el('sheets-cancel').onclick=()=>el('sheets-dialog').close();
+for(const [id,checked] of [['sheets-all',true],['sheets-none',false]]){
+  el(id).onclick=()=>sheetsAcids.querySelectorAll('input').forEach(input=>{input.checked=checked;});
+}
+function calibrationSheet(name) {
+  const {rows,points,line,blank,hasBlank}=compute(name,false);
+  const details=[
+    [acidTitle(name)],
+    ['pKₐ',...records[name].pka.map(parseNumber)],
+    ['Фон κ₀, мкСм/см',hasBlank?blank:null],
+    ['R²',line?.r2],
+  ];
+  return {name,details,points,hasBlank,rows:rows.map(row=>[
+    row.i+1,row.c,row.measured,row.h,row.back?.c,row.enabled?'Да':'Нет',
+  ])};
+}
+el('sheets-form').onsubmit=event=>{
+  event.preventDefault();
+  const acids=checkedValues(sheetsAcids);
+  if(!acids.length){
+    el('sheets-notice').textContent='Выбери хотя бы одну кислоту.';
+    return;
+  }
+  downloadWorkbook(calibrationSheetsWorkbook(acids.map(calibrationSheet)),'calibration-sheets.xlsx');
+  el('sheets-dialog').close();
+};
+function downloadWorkbook(file,filename) {
+  const url=URL.createObjectURL(file);
+  const link=make('a',{href:url,download:filename});
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 function calibrationExportRows(acids,colors,includePlanned) {
   return acids.flatMap(name=>{
     const {rows,points,line,blank}=compute(name);
@@ -1222,13 +1263,7 @@ el('export-form').onsubmit=event=>{
     notice.textContent='Для выбранных кислот подходящих строк нет.';
     return;
   }
-  const file=calibrationWorkbook(rows);
-  const url=URL.createObjectURL(file);
-  const link=make('a',{href:url,download:'calibration-errors.xlsx'});
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  downloadWorkbook(calibrationWorkbook(rows),'calibration-errors.xlsx');
   notice.textContent='Выгружено точек: '+rows.length+'.';
 };
 el('add-row').onclick=()=>{

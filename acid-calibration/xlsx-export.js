@@ -63,10 +63,6 @@ function zipWorkbook(files) {
 }
 
 function calibrationWorkbook(rows) {
-  const xml='<?xml version="1.0" encoding="UTF-8"?>';
-  const sheetNs='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
-  const officeRel='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-  const packageRel='http://schemas.openxmlformats.org/package/2006/relationships';
   const headers=['Кислота','Концентрация, моль/л','Ожидаемая κ, мкСм/см','Текущая κ, мкСм/см'];
   const data=[headers,...rows].map((row,i)=>{
     const cells=row.map((value,j)=>{
@@ -82,20 +78,30 @@ function calibrationWorkbook(rows) {
     }).join('');
     return '<row r="'+(i+1)+'">'+cells+'</row>';
   }).join('');
-  return zipWorkbook({
-    '[Content_Types].xml':xml+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
-      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
-      '<Default Extension="xml" ContentType="application/xml"/>'+
-      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
-      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'+
-      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',
-    '_rels/.rels':xml+'<Relationships xmlns="'+packageRel+'"><Relationship Id="rId1" Type="'+officeRel+
-      '/officeDocument" Target="xl/workbook.xml"/></Relationships>',
-    'xl/workbook.xml':xml+'<workbook xmlns="'+sheetNs+'" xmlns:r="'+officeRel+'"><bookViews><workbookView/></bookViews><sheets>'+
-      '<sheet name="Ошибки калибровки" sheetId="1" r:id="rId1"/></sheets></workbook>',
-    'xl/_rels/workbook.xml.rels':xml+'<Relationships xmlns="'+packageRel+'"><Relationship Id="rId1" Type="'+officeRel+
-      '/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="'+officeRel+
-      '/styles" Target="styles.xml"/></Relationships>',
+  return exportWorkbook([{name:'Ошибки калибровки',body:
+    '<dimension ref="A1:D'+(rows.length+1)+'"/>'+
+    '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'+
+    '<cols><col min="1" max="1" width="28" customWidth="1"/><col min="2" max="4" width="24" customWidth="1"/></cols>'+
+    '<sheetData>'+data+'</sheetData><autoFilter ref="A1:D'+(rows.length+1)+'"/>'}]);
+}
+
+const workbookXml='<?xml version="1.0" encoding="UTF-8"?>';
+const sheetNs='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+const officeRel='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const packageRel='http://schemas.openxmlformats.org/package/2006/relationships';
+
+const drawingNs=officeRel.replace('/officeDocument/2006/relationships','/drawingml/2006/spreadsheetDrawing');
+const artNs='http://schemas.openxmlformats.org/drawingml/2006/main';
+const chartNs='http://schemas.openxmlformats.org/drawingml/2006/chart';
+const xmlnsRel=' xmlns:r="'+officeRel+'"';
+const relationship=(id,type,target)=>'<Relationship Id="rId'+id+'" Type="'+officeRel+'/'+type+'" Target="'+target+'"/>';
+const relationships=body=>workbookXml+'<Relationships xmlns="'+packageRel+'">'+body+'</Relationships>';
+const sheetOverride=(path,type)=>'<Override PartName="/xl/'+path+'" ContentType="application/vnd.openxmlformats-officedocument.'+type+'+xml"/>';
+
+function exportWorkbook(sheets) {
+  const xml=workbookXml;
+  const files={
+    '_rels/.rels':relationships(relationship(1,'officeDocument','xl/workbook.xml')),
     'xl/styles.xml':xml+'<styleSheet xmlns="'+sheetNs+'"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts>'+
       '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'+
       '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'+
@@ -104,9 +110,112 @@ function calibrationWorkbook(rows) {
       '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'+
       '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>'+
       '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>',
-    'xl/worksheets/sheet1.xml':xml+'<worksheet xmlns="'+sheetNs+'"><dimension ref="A1:D'+(rows.length+1)+'"/>'+
-      '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'+
-      '<cols><col min="1" max="1" width="28" customWidth="1"/><col min="2" max="4" width="24" customWidth="1"/></cols>'+
-      '<sheetData>'+data+'</sheetData><autoFilter ref="A1:D'+(rows.length+1)+'"/></worksheet>',
-  });
+  };
+  const sheetTags=[], links=[], overrides=[
+    sheetOverride('workbook.xml','spreadsheetml.sheet.main'),
+    sheetOverride('styles.xml','spreadsheetml.styles'),
+  ];
+  const used=new Set();
+  for(const [index,sheet] of sheets.entries()){
+    const n=index+1;
+    const base=sheet.name.replace(/[\\/*?:\[\]\x00-\x1f]/g,' ').trim().replace(/^'+|'+$/g,'')||'Лист';
+    let name=base.slice(0,31).replace(/'+$/g,'');
+    for(let suffix=2;used.has(name.toLowerCase());suffix++){
+      const tail=' ('+suffix+')';
+      name=base.slice(0,31-tail.length)+tail;
+    }
+    used.add(name.toLowerCase());
+    sheetTags.push('<sheet name="'+workbookXmlText(name).replace(/"/g,'&quot;')+'" sheetId="'+n+'" r:id="rId'+n+'"/>');
+    links.push(relationship(n,'worksheet','worksheets/sheet'+n+'.xml'));
+    overrides.push(sheetOverride('worksheets/sheet'+n+'.xml','spreadsheetml.worksheet'));
+    files['xl/worksheets/sheet'+n+'.xml']=xml+'<worksheet xmlns="'+sheetNs+'"'+xmlnsRel+'>'+
+      sheet.body+(sheet.chart?'<drawing r:id="rId1"/>':'')+'</worksheet>';
+    if(sheet.chart){
+      overrides.push(sheetOverride('drawings/drawing'+n+'.xml','drawing'),
+        sheetOverride('charts/chart'+n+'.xml','drawingml.chart'));
+      files['xl/worksheets/_rels/sheet'+n+'.xml.rels']=relationships(relationship(1,'drawing','../drawings/drawing'+n+'.xml'));
+      files['xl/drawings/_rels/drawing'+n+'.xml.rels']=relationships(relationship(1,'chart','../charts/chart'+n+'.xml'));
+      files['xl/drawings/drawing'+n+'.xml']=calibrationDrawing();
+      files['xl/charts/chart'+n+'.xml']=sheet.chart(name);
+    }
+  }
+  files['xl/workbook.xml']=xml+'<workbook xmlns="'+sheetNs+'"'+xmlnsRel+'><bookViews><workbookView/></bookViews><sheets>'+
+    sheetTags.join('')+'</sheets></workbook>';
+  files['xl/_rels/workbook.xml.rels']=relationships(links.join('')+relationship(sheets.length+1,'styles','styles.xml'));
+  files['[Content_Types].xml']=xml+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
+    '<Default Extension="xml" ContentType="application/xml"/>'+overrides.join('')+'</Types>';
+  return zipWorkbook(files);
+}
+
+function calibrationDrawing() {
+  return workbookXml+'<xdr:wsDr xmlns:xdr="'+drawingNs+'" xmlns:a="'+artNs+'">'+
+    '<xdr:oneCellAnchor><xdr:from><xdr:col>9</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>'+
+    '<xdr:ext cx="5700000" cy="3300000"/><xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="2" name="Калибровочный график"/>'+
+    '<xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>'+
+    '<a:graphic><a:graphicData uri="'+chartNs+'"><c:chart xmlns:c="'+chartNs+'"'+xmlnsRel+' r:id="rId1"/></a:graphicData></a:graphic>'+
+    '</xdr:graphicFrame><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>';
+}
+
+function calibrationScatter(points,rowCount,hasBlank,sheetName) {
+  const title=text=>'<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>'+workbookXmlText(text)+
+    '</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title>';
+  const values=(key,column)=>{
+    const quoted="'"+sheetName.replace(/'/g,"''")+"'";
+    const range=quoted+'!$'+column+'$1:$'+column+'$'+rowCount;
+    return '<c:numRef><c:f>'+workbookXmlText(range)+'</c:f><c:numCache><c:formatCode>General</c:formatCode>'+
+      '<c:ptCount val="'+rowCount+'"/>'+points.map(point=>
+        '<c:pt idx="'+point.i+'"><c:v>'+point[key]+'</c:v></c:pt>').join('')+'</c:numCache></c:numRef>';
+  };
+  const axis=(id,cross,position,label)=>'<c:valAx><c:axId val="'+id+'"/><c:scaling><c:orientation val="minMax"/></c:scaling>'+
+    '<c:delete val="0"/><c:axPos val="'+position+'"/>'+title(label)+'<c:numFmt formatCode="General" sourceLinked="0"/>'+
+    '<c:tickLblPos val="nextTo"/><c:crossAx val="'+cross+'"/><c:crosses val="autoZero"/><c:crossBetween val="midCat"/></c:valAx>';
+  const trend=points.length>1&&points.some(point=>point.x!==points[0].x)?
+    '<c:trendline><c:trendlineType val="linear"/></c:trendline>':'';
+  const series=rowCount?'<c:ser><c:idx val="0"/><c:order val="0"/><c:spPr><a:ln><a:noFill/></a:ln></c:spPr>'+
+    '<c:marker><c:symbol val="circle"/><c:size val="5"/></c:marker>'+trend+
+    '<c:xVal>'+values('x','G')+'</c:xVal><c:yVal>'+values('y','H')+'</c:yVal></c:ser>':'';
+  return workbookXml+'<c:chartSpace xmlns:c="'+chartNs+'" xmlns:a="'+artNs+'"><c:chart>'+title('Калибровочный график')+
+    '<c:plotArea><c:scatterChart><c:scatterStyle val="marker"/>'+series+'<c:axId val="10"/><c:axId val="20"/></c:scatterChart>'+
+    axis(10,20,'b','[H⁺], мкмоль/л')+axis(20,10,'l',(hasBlank?'κ − κ₀':'κ')+', мкСм/см')+'</c:plotArea>'+
+    '<c:plotVisOnly val="0"/></c:chart></c:chartSpace>';
+}
+
+function calibrationSheetsWorkbook(sheets) {
+  return exportWorkbook(sheets.map(({name,details,rows,points,hasBlank})=>{
+    const header=['№','C стандарта, моль/л','Показание κ, мкСм/см','[H⁺], мкмоль/л','C по тренду, моль/л','В графике'];
+    const table=[...details,[],header,...rows];
+    const rowCount=table.length;
+    const pointByRow=new Map(points.map(point=>[point.i,point]));
+    const firstStandard=details.length+3;
+    const data=Array.from({length:rowCount},(_,index)=>{
+      const row=table[index]??[];
+      const number=index+1;
+      const cells=row.map((value,col)=>{
+        const ref='ABCDEF'[col]+number;
+        if(Number.isFinite(value))return '<c r="'+ref+'"><v>'+value+'</v></c>';
+        if(typeof value!=='string')return '';
+        return '<c r="'+ref+'" t="inlineStr"'+(row===header?' s="1"':'')+'><is><t>'+workbookXmlText(value)+'</t></is></c>';
+      }).join('');
+      const point=pointByRow.get(index);
+      const standard=firstStandard+index;
+      const formulaCell=(column,formula,value)=>{
+        const error=value===undefined;
+        return '<c r="'+column+number+'"'+(error?' t="e"':'')+'><f>'+workbookXmlText(formula)+'</f><v>'+
+          (error?'#N/A':value)+'</v></c>';
+      };
+      let source='';
+      if(index<rows.length){
+        const c='B'+standard, reading='C'+standard, hydrogen='D'+standard, enabled='F'+standard;
+        source=formulaCell('G','IF(AND(ISNUMBER('+c+'),'+c+'>0,ISNUMBER('+reading+'),'+reading+
+          '>=0,ISNUMBER('+hydrogen+'),'+hydrogen+'>0,'+enabled+'="Да"),'+hydrogen+',NA())',point?.x)+
+          formulaCell('H','IF(ISNUMBER(G'+number+'),'+reading+'-$B$3,NA())',point?.y);
+      }
+      return '<row r="'+number+'">'+cells+source+'</row>';
+    }).join('');
+    const body='<dimension ref="A1:H'+rowCount+'"/><cols><col min="1" max="1" width="14" customWidth="1"/>'+
+      '<col min="2" max="5" width="27" customWidth="1"/><col min="6" max="6" width="14" customWidth="1"/><col min="7" max="8" width="12" hidden="1" customWidth="1"/></cols>'+
+      '<sheetData>'+data+'</sheetData>';
+    return {name,body,chart:rows.length?sheetName=>calibrationScatter(points,rows.length,hasBlank,sheetName):null};
+  }));
 }
