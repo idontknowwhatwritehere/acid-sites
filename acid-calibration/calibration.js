@@ -153,7 +153,7 @@ let stored = {};
 try { stored = JSON.parse(localStorage.getItem(storageKey) || '{}') || {}; } catch {}
 for (const [name,candidate] of Object.entries(stored)) {
   if (!candidate || !Array.isArray(candidate.rows) ||
-      (Object.hasOwn(seed,name) && candidate.rows.length<(name==='Адипиновая'?9:seed[name].rows.length)) ||
+      (Object.hasOwn(seed,name) && candidate.rowsDeleted!==true && candidate.rows.length<(name==='Адипиновая'?9:seed[name].rows.length)) ||
       !candidate.rows.every(row=>Array.isArray(row)&&row.length===2) ||
       !Array.isArray(candidate.pka) || candidate.pka.length<1 || candidate.pka.length>3) continue;
   if (!Object.hasOwn(seed,name)) names.push(name);
@@ -217,9 +217,9 @@ function compute(name) {
     const h=Number.isFinite(solved)&&solved>0?solved:null;
     const theory=h!==null&&lambdas?ionicConductivity(h,c,species(h,k),water,lambdas):null;
     const x=theory?theory.value:h;
-    return {i,c,raw,measured,y:measured===null?null:measured-blank,h,x,theory};
+    return {i,c,raw,measured,enabled:!record.excludedRows?.includes(i),y:measured===null?null:measured-blank,h,x,theory};
   });
-  const points = rows.filter(row => row.x !== null && Number.isFinite(row.x) && row.measured !== null && row.measured >= 0);
+  const points = rows.filter(row => row.enabled && row.x !== null && Number.isFinite(row.x) && row.measured !== null && row.measured >= 0);
   const line = fit(points);
   for (const row of rows) row.back = row.measured !== null && row.measured >= 0 ? invert(row.y,line,k,water,lambdas) : null;
   for (const point of points) point.diagnostics=diagnose(point,line);
@@ -236,12 +236,15 @@ function appendHexBnStandards() {
     if(!line||!(line.a>0))continue;
     if(record.hexBnPlanned?.length){
       const corrected=new Set(record.instrumentReady);
+      const excluded=new Set(record.excludedRows);
       const retained=record.rows.flatMap((row,index)=>
         record.hexBnPlanned.includes(parseNumber(row[0]))&&String(row[1]).trim()===''
-          ?[]:[{row,corrected:corrected.has(index)}]);
+          ?[]:[{row,corrected:corrected.has(index),excluded:excluded.has(index)}]);
       record.rows=retained.map(entry=>entry.row);
       if(record.instrumentReady)record.instrumentReady=retained.flatMap((entry,index)=>
         entry.corrected?[index]:[]);
+      if(record.excludedRows)record.excludedRows=retained.flatMap((entry,index)=>
+        entry.excluded?[index]:[]);
     }
     record.hexBnPlanVersion=5;
     record.hexBnPlanned=[];
@@ -402,24 +405,25 @@ function showInputs() {
     const tr = make('tr');
     const number = make('th',{scope:'row'});
     const numberContent=make('span',{className:'row-number',textContent:i+1});
-    if(!Object.hasOwn(seed,active)||i>=seed[active].rows.length){
-      const remove=make('button',{type:'button',className:'remove-row',textContent:'×',title:'Удалить строку'});
-      remove.setAttribute('aria-label','Удалить строку '+(i+1));
-      remove.onclick=()=>{
-        if(row.some(value=>String(value).trim())&&!confirm('Удалить строку '+(i+1)+' и её измерение?'))return;
-        record.rows.splice(i,1);
-        if(record.instrumentReady)record.instrumentReady=record.instrumentReady.filter(index=>index!==i)
+    const remove=make('button',{type:'button',className:'remove-row',textContent:'×',title:'Удалить строку'});
+    remove.setAttribute('aria-label','Удалить строку '+(i+1));
+    remove.onclick=()=>{
+      if(!confirm('Удалить стандарт № '+(i+1)+' из калибровки «'+active+'»?'))return;
+      record.rows.splice(i,1);
+      record.rowsDeleted=true;
+      for(const key of ['instrumentReady','excludedRows']){
+        if(record[key])record[key]=record[key].filter(index=>index!==i)
           .map(index=>index>i?index-1:index);
-        persist();
-        drillOrigin=null;
-        const next=Math.max(0,Math.min(i,record.rows.length-1));
-        selected={kind:'h',row:next,step:0};
-        showInputs();
-        refresh();
-        (el('conc-'+next)||el('add-row')).focus();
-      };
-      numberContent.append(remove);
-    }
+      }
+      persist();
+      drillOrigin=null;
+      const next=Math.max(0,Math.min(i,record.rows.length-1));
+      selected={kind:'h',row:next,step:0};
+      showInputs();
+      refresh();
+      (el('conc-'+next)||el('add-row')).focus();
+    };
+    numberContent.append(remove);
     number.append(numberContent);
     tr.append(number);
     ['conc','reading','h','back','theory'].forEach((kind, col) => {
@@ -436,6 +440,19 @@ function showInputs() {
       td.append(control);
       tr.append(td);
     });
+    const chartCell=make('td',{className:'chart-use'});
+    const include=make('input',{type:'checkbox',checked:!record.excludedRows?.includes(i)});
+    include.setAttribute('aria-label','Использовать стандарт '+(i+1)+' в графике и тренде');
+    include.onchange=()=>{
+      const excluded=new Set(record.excludedRows);
+      if(include.checked)excluded.delete(i);
+      else excluded.add(i);
+      record.excludedRows=[...excluded];
+      persist();
+      refresh();
+    };
+    chartCell.append(include);
+    tr.append(chartCell);
     return tr;
   }));
 }
@@ -507,7 +524,7 @@ function refresh() {
   el('blank-state').textContent=model.blankInvalid?'Введи неотрицательное число.':
     model.hasBlank?'Вычитается из стандартов и пробы.':'Фон не задан.';
   el('notice').textContent=!model.k?'Проверь pKa: для каждой ступени нужно число.':
-    model.points.length < model.rows.length ? 'Строки с пустыми или некорректными данными исключены из тренда.' :
+    model.points.length < model.rows.length ? 'В тренд входят отмеченные строки с корректными данными.' :
     model.line && !(model.line.a>0) ? 'Обратный пересчёт требует положительного наклона тренда.' : '';
   renderChart();
   renderAdditionalCharts(calibrations);
@@ -757,7 +774,7 @@ function renderAdditionalCharts(calibrations) {
   const signal='κ, мкСм/см';
   const hydrogenLabel='[H⁺] расчётная, мкмоль/л';
   const theoryLabel='κ расчётная, мкСм/см';
-  const standards=rows.filter(row=>row.c>0);
+  const standards=rows.filter(row=>row.enabled&&row.c>0);
   const recovered=standards.filter(row=>row.back?.c>0);
   const dot=(row,x,y)=>({i:row.i,x,y});
   drawAdditionalChart('raw',{xLabel:concentration,yLabel:signal,
