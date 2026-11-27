@@ -13,6 +13,8 @@
 <div><h1>Калибровка кислот</h1><p class="project">Данные из файла «i-BuBn нов(1).xlsx»</p></div>
 <div class="top-actions">
 <label class="model-toggle"><input type="checkbox" id="model-toggle" aria-controls="physics">Кольрауш + автопротолиз</label>
+<label class="model-toggle"><input type="checkbox" id="instrument-toggle">Отмена ×1,048729</label>
+<button type="button" class="reset" id="export-errors">Сформировать Excel с ошибками</button>
 <button type="button" class="reset" id="reset">Сбросить лист</button>
 </div>
 </div></header>
@@ -21,6 +23,20 @@
   <nav class="tabs" id="tabs" role="tablist" aria-label="Кислоты"></nav>
   <button id="add-acid" class="action" type="button">+ Кислота</button>
 </div>
+<dialog id="export-dialog" class="editor-dialog export-dialog" aria-labelledby="export-title">
+  <form id="export-form">
+    <h2 id="export-title">Excel с ошибками калибровки</h2>
+    <fieldset><legend>Цвета точек</legend><div id="export-colors" class="export-choices"></div></fieldset>
+    <label><input id="export-planned" type="checkbox"> Плановые стандарты с ожидаемой κ</label>
+    <fieldset>
+      <legend>Кислоты</legend>
+      <div class="export-selection"><button type="button" class="action secondary" id="export-all">Выбрать все</button><button type="button" class="action secondary" id="export-none">Снять выбор</button></div>
+      <div id="export-acids" class="export-choices"></div>
+    </fieldset>
+    <p id="export-notice" class="detail" role="status"></p>
+    <div class="dialog-actions"><button type="button" class="action secondary" id="export-cancel">Отмена</button><button class="action" type="submit">Выгрузить Excel</button></div>
+  </form>
+</dialog>
 <dialog id="acid-dialog" class="editor-dialog" aria-labelledby="acid-dialog-title">
   <form id="acid-form">
     <h2 id="acid-dialog-title">Добавить кислоту</h2>
@@ -61,7 +77,11 @@
 <thead><tr aria-hidden="true"><th></th><th>A</th><th>B</th><th>C</th><th>D</th><th id="theory-letter" hidden>E</th></tr>
 <tr><th scope="col">№</th><th scope="col">C стандарта<span class="unit">моль/л</span></th><th scope="col">Показание κ<span class="unit">мкСм/см</span></th><th scope="col">[H⁺]<span class="unit">мкмоль/л</span></th><th scope="col">C по тренду<span class="unit">моль/л</span></th><th scope="col" id="theory-head" hidden>κ расчётная<span class="unit">мкСм/см</span></th></tr></thead><tbody id="rows"></tbody>
 </table></div>
-<div class="sheet-actions"><button id="add-row" class="action" type="button">+ Строка стандарта</button></div>
+<div class="sheet-actions">
+  <button id="add-row" class="action" type="button">+ Строка стандарта</button>
+  <button id="save-sheet" class="action" type="button">Сохранить</button>
+  <span id="save-status" class="detail" role="status"></span>
+</div>
 </section>
 <section class="card plot-card" aria-labelledby="plot-title">
 <div class="card-head plot-header"><h2 id="plot-title">Калибровочный график</h2><button type="button" class="metric" id="metric" data-kind="r2" title="Показать формулу R²">R² —</button></div>
@@ -70,7 +90,7 @@
 <div class="legend"><span data-quality="ok"><i></i>Достоверная</span><span data-quality="warning"><i></i>Подозрительная</span><span data-quality="influence"><i></i>Сильно влияющая</span><span data-quality="repeat"><i></i>Рекомендуется переснять</span><span data-quality="unknown"><i></i>Недостаточно данных</span><span><i class="line"></i>Линейный тренд</span><button id="trend" type="button" data-kind="fit"></button></div>
 <details class="diagnostic-rules">
   <summary>Пороги диагностики</summary>
-  <p>Автоцвет вкладки показывает самый серьёзный статус на листе: зелёный — все точки в норме, жёлтый — есть точки для проверки, красный — есть точки для повторного измерения, серый — данных для оценки недостаточно. Ручной цвет можно сменить на «Автоцвет» в меню вкладки.</p>
+  <p>При R² выше 0,999 вкладки окрашиваются в зелёный: чем выше R² среди кислот, тем насыщеннее цвет. При R² до 0,999 включительно цвет зависит от диагностики: жёлтый — проверить, оранжевый — есть сильно влияющие точки, красный — есть точки для повторного измерения. Серый цвет обозначает отсутствие R².</p>
   <p>Повторить измерение при |t| &gt; 3 или ошибке концентрации &gt; 20%. Сильное влияние при расстоянии Кука &gt; 4/n. Предупреждение при |t| &gt; 2, рычаге &gt; 4/n или ошибке концентрации &gt; 10%. n — число точек. Пороги 10% и 20% — рабочие значения для этого сайта.</p>
   <p>Относительный остаток рассчитан от экспериментальной проводимости на оси Y. Ошибка концентрации рассчитана от C стандарта по полному тренду. Стьюдентизированный остаток использует дисперсию без выбранной точки. Все точки остаются в тренде.</p>
 </details>
@@ -88,32 +108,32 @@
 <p id="notice" class="notice" role="status"></p>
 <section class="additional-charts" aria-label="Дополнительные графики">
   <section class="card" aria-labelledby="raw-title">
-    <div class="card-head"><h2 id="raw-title">Исходная калибровка</h2></div>
+    <div class="card-head"><h2 id="raw-title">Исходная калибровка</h2><p class="desc">Показывает, как меняется измеренная проводимость при изменении концентрации кислоты.</p></div>
     <div class="plot-wrap" id="raw-chart"></div>
   </section>
   <section class="card" aria-labelledby="error-title">
-    <div class="card-head"><h2 id="error-title">Ошибка пересчёта концентрации, %</h2></div>
+    <div class="card-head"><h2 id="error-title">Ошибка пересчёта концентрации, %</h2><p class="desc">Показывает, на сколько процентов тренд завышает или занижает концентрацию стандарта. Логарифмическая ось помогает рассмотреть разбавленные точки.</p></div>
     <div class="plot-wrap" id="error-chart"></div>
   </section>
   <section class="card" aria-labelledby="residual-title">
-    <div class="card-head"><h2 id="residual-title">Остатки по электропроводности</h2></div>
+    <div class="card-head"><h2 id="residual-title">Остатки по электропроводности</h2><p class="desc">Показывает разницу между измеренной проводимостью с учётом фона и значением по тренду. По остаткам можно заметить выбросы и систематический изгиб.</p></div>
     <div class="plot-wrap" id="residual-chart"></div>
   </section>
   <section class="card" aria-labelledby="species-title">
-    <div class="card-head"><h2 id="species-title">Распределение ионных форм кислоты</h2></div>
+    <div class="card-head"><h2 id="species-title">Распределение ионных форм кислоты</h2><p class="desc">Показывает, какие формы кислоты преобладают при разных pH. Нажми на метку pKₐ, чтобы увидеть доли всех форм при этом pH.</p></div>
     <div class="plot-wrap" id="species-chart"></div>
     <ul class="chart-series" id="species-legend" aria-label="Ряды данных" hidden></ul>
   </section>
   <section class="card" aria-labelledby="protons-title">
-    <div class="card-head"><h2 id="protons-title">Среднее число диссоциировавших протонов</h2><p class="desc">Без учёта автопротолиза воды</p></div>
+    <div class="card-head"><h2 id="protons-title">Среднее число диссоциировавших протонов</h2><p class="desc">Показывает, сколько протонов в среднем отдаёт молекула кислоты при каждой концентрации. Расчёт без учёта автопротолиза воды.</p></div>
     <div class="plot-wrap" id="protons-chart"></div>
   </section>
   <section class="card" aria-labelledby="recovered-title">
-    <div class="card-head"><h2 id="recovered-title">Расчётная концентрация от исходной</h2><p class="desc">Пунктир соответствует y = x</p></div>
+    <div class="card-head"><h2 id="recovered-title">Расчётная концентрация от исходной</h2><p class="desc">Сравнивает концентрацию по тренду с заданной. Чем ближе точка к пунктирной линии y = x, тем точнее пересчёт.</p></div>
     <div class="plot-wrap" id="recovered-chart"></div>
   </section>
   <section class="card chart-wide" aria-labelledby="comparison-title">
-    <div class="card-head"><h2 id="comparison-title">Сравнение калибровок всех кислот</h2><p id="comparison-axis-note" class="desc" hidden></p></div>
+    <div class="card-head"><h2 id="comparison-title">Сравнение калибровок всех кислот</h2><p class="desc">Позволяет сравнить наклон калибровочных прямых и диапазоны измерений разных кислот на общих осях.</p><p id="comparison-axis-note" class="desc" hidden></p></div>
     <div class="plot-wrap" id="comparison-chart"></div>
     <ul class="chart-series" id="comparison-legend" aria-label="Ряды данных" hidden></ul>
   </section>
@@ -121,36 +141,46 @@
 <footer class="card reference" aria-labelledby="reference-title">
   <div class="card-head"><h2 id="reference-title">Пояснения и источники</h2></div>
   <section class="main-formula" aria-labelledby="main-formula-title">
-    <h3 id="main-formula-title">Основная формула</h3>
+    <h3 id="main-formula-title">Обратная формула для расчёта C из [H⁺]</h3>
     <div class="main-equation">
       <math display="block">
-        <mi id="main-h" class="fraction-part">h</mi><mo>=</mo><mi id="main-c" class="fraction-part">C</mi><mo>⋅</mo>
+        <mi class="fraction-part" data-symbol="c">C</mi><mo>=</mo>
+        <mi class="inverse-h fraction-part" data-symbol="h">h</mi>
+        <mrow class="inverse-h-water" hidden>
+          <mo>(</mo><mi class="fraction-part" data-symbol="h">h</mi><mo>−</mo><mfrac><msub><mi>K</mi><mi>w</mi></msub><mi class="fraction-part" data-symbol="h">h</mi></mfrac><mo>)</mo>
+        </mrow>
+        <mo>⋅</mo>
+        <mfrac><mi class="fraction-part" data-symbol="d">D</mi><mi class="fraction-part" data-symbol="n">N</mi></mfrac>
+        <mo>=</mo>
+        <mi class="inverse-h fraction-part" data-symbol="h">h</mi>
+        <mrow class="inverse-h-water" hidden>
+          <mo>(</mo><mi class="fraction-part" data-symbol="h">h</mi><mo>−</mo><mfrac><msub><mi>K</mi><mi>w</mi></msub><mi class="fraction-part" data-symbol="h">h</mi></mfrac><mo>)</mo>
+        </mrow>
+        <mo>⋅</mo>
         <mfrac>
-          <mrow id="main-numerator" class="fraction-part">
-            <msub><mi>K</mi><mn>1</mn></msub><msup><mi>h</mi><mn>2</mn></msup>
-            <mo>+</mo><mn>2</mn><msub><mi>K</mi><mn>1</mn></msub><msub><mi>K</mi><mn>2</mn></msub><mi>h</mi>
-            <mo>+</mo><mn>3</mn><msub><mi>K</mi><mn>1</mn></msub><msub><mi>K</mi><mn>2</mn></msub><msub><mi>K</mi><mn>3</mn></msub>
-          </mrow>
-          <mrow id="main-denominator" class="fraction-part">
+          <mrow class="fraction-part" data-symbol="d">
             <msup><mi>h</mi><mn>3</mn></msup>
             <mo>+</mo><msub><mi>K</mi><mn>1</mn></msub><msup><mi>h</mi><mn>2</mn></msup>
             <mo>+</mo><msub><mi>K</mi><mn>1</mn></msub><msub><mi>K</mi><mn>2</mn></msub><mi>h</mi>
             <mo>+</mo><msub><mi>K</mi><mn>1</mn></msub><msub><mi>K</mi><mn>2</mn></msub><msub><mi>K</mi><mn>3</mn></msub>
           </mrow>
+          <mrow class="fraction-part" data-symbol="n">
+            <msub><mi>K</mi><mn>1</mn></msub><msup><mi>h</mi><mn>2</mn></msup>
+            <mo>+</mo><mn>2</mn><msub><mi>K</mi><mn>1</mn></msub><msub><mi>K</mi><mn>2</mn></msub><mi>h</mi>
+            <mo>+</mo><mn>3</mn><msub><mi>K</mi><mn>1</mn></msub><msub><mi>K</mi><mn>2</mn></msub><msub><mi>K</mi><mn>3</mn></msub>
+          </mrow>
         </mfrac>
-        <mrow id="main-water-term" hidden>
-          <mo>+</mo><mfrac><msub><mi>K</mi><mi>w</mi></msub><mi>h</mi></mfrac>
-        </mrow>
       </math>
     </div>
-    <div class="fraction-controls" role="group" aria-label="Обозначения основной формулы">
+    <div class="fraction-controls" role="group" aria-label="Обозначения обратной формулы">
       <button type="button" id="explain-h" class="fraction-button" aria-pressed="false" aria-controls="fraction-explanation">h · концентрация H⁺</button>
       <button type="button" id="explain-c" class="fraction-button" aria-pressed="false" aria-controls="fraction-explanation">C · концентрация кислоты</button>
-      <button type="button" id="explain-n" class="fraction-button" aria-pressed="false" aria-controls="fraction-explanation">N · числитель</button>
-      <button type="button" id="explain-d" class="fraction-button" aria-pressed="false" aria-controls="fraction-explanation">D · знаменатель</button>
+      <button type="button" id="explain-n" class="fraction-button" aria-pressed="false" aria-controls="fraction-explanation">N · знаменатель</button>
+      <button type="button" id="explain-d" class="fraction-button" aria-pressed="false" aria-controls="fraction-explanation">D · числитель</button>
     </div>
     <p id="fraction-explanation" class="fraction-explanation" aria-live="polite">Выбери обозначение, чтобы увидеть его смысл.</p>
     <p><strong>h = [H⁺]</strong> — концентрация ионов водорода. C — концентрация кислоты, K₁, K₂ и K₃ — константы её ступеней диссоциации. Для отсутствующих ступеней соответствующие K равны нулю.</p>
+    <p>Единица C совпадает с единицей h. Если h подставлено в мкмоль/л, для перевода C в моль/л раздели результат на 10⁶.</p>
     <div id="main-conductivity" hidden>
       <h4>Проводимость по Кольраушу для оси X</h4>
       <div class="main-equation">
@@ -181,9 +211,10 @@
     <section><h3>Две независимые поправки</h3><p>Автопротолиз добавляет [OH⁻] = Kᵥ/[H⁺] в баланс зарядов. При 25 °C Kᵥ = 10⁻¹⁴ (моль/л)². Закон Кольрауша суммирует λ°ᵢcᵢ для H⁺ и всех анионов кислоты. Вклад OH⁻ добавляется, если включён автопротолиз. Используются предельные молярные проводимости и приближение разбавленного раствора.</p><p><a href="https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication260-142.pdf" target="_blank" rel="noopener noreferrer">NIST SP 260-142 · Kᵥ, λ° H⁺ и OH⁻ при 25 °C</a></p></section>
   </div><div class="provenance"><a id="pk-source" target="_blank" rel="noopener noreferrer"></a><small id="range-source"></small></div></footer>
 </main>
-<script id="seed" type="application/json">{"Щавелевая":{"pka":[1.25,4.27],"rows":[[0.001,300],[0.0007,214],[0.0005,157.9],[0.0003,100.7],[0.0001,39.9],[7e-05,29.5],[5e-05,22.4],[3e-05,15.5],[1e-05,5.4]]},"Янтарная":{"pka":[4.21,5.64],"rows":[[0.001,85.2],[0.0007,69.6],[0.0005,57.3],[0.0003,42.4],[0.0001,21.3],[7e-05,16.8],[5e-05,13.2],[3e-05,9.1],[1e-05,4.3]]},"Яблочная":{"pka":[3.459,5.097],"rows":[[0.001,179.2],[0.0007,137.4],[0.0005,109.6],[0.0003,76.4],[0.0001,33.4],[7e-05,25.4],[5e-05,19.4],[3e-05,12.8],[1e-05,5.8]]},"Глутаровая":{"pka":[4.34,5.27],"rows":[[0.001,75.8],[0.0007,61.9],[0.0005,56.1],[0.0003,38.4],[0.0001,20],[7e-05,16.75],[5e-05,13.2],[3e-05,9.1],[1e-05,5.7]]},"Уксусная":{"pka":[4.757],"rows":[[0.001,52],[0.0007,42.2],[0.0005,35.3],[0.0003,26.5],[0.0001,13.8],[7e-05,11.2],[5e-05,9.3],[3e-05,6.7],[1e-05,4]]},"Муравьиная":{"pka":[3.75],"rows":[[0.001,152.1],[0.0007,111],[0.0005,89.4],[0.0003,60],[0.0001,28.9],[7e-05,22.1],[5e-05,18],[3e-05,11.3],[1e-05,4.6]]},"Миндальная":{"pka":[3.407],"rows":[[0.001,180],[0.0007,136.2],[0.0005,108],[0.0003,72.1],[0.0001,31],[7e-05,23.1],[5e-05,17.4],[3e-05,12.3],[1e-05,3.6]]},"Лимонная":{"pka":[3.13,4.76,6.4],"rows":[[0.001,220],[0.0007,166],[0.0005,132],[0.0003,89.5],[0.0001,36.4],[7e-05,29.1],[5e-05,21.9],[3e-05,14.3],[1e-05,5.7]]},"Малоновая":{"pka":[2.847,5.696],"rows":[[0.001,281],[0.0007,203],[0.0005,153],[0.0003,99.8],[0.0001,37.6],[7e-05,26.9],[5e-05,19.7],[3e-05,10.3],[1e-05,5.1]]},"Пропионовая":{"pka":[4.88],"rows":[[0.001,42.4],[0.0007,35.2],[0.0005,29.3],[0.0003,22.1],[0.0001,13.8],[7e-05,9.9],[5e-05,8.5],[3e-05,6],[1e-05,3.3]]},"Винная":{"pka":[3.03,4.37],"rows":[[0.001,247],[0.0007,186.4],[0.0005,142],[0.0003,98.6],[0.0001,43.9],[7e-05,33.9],[5e-05,26.2],[3e-05,17.3],[1e-05,7.6]]},"Адипиновая":{"pka":[4.42,5.42],"rows":[[0.001,66.6],[0.0007,54.9],[0.0005,45.5],[0.0003,34.6],[0.0001,18.1],[7e-05,14.7],[5e-05,13.1],[3e-05,8.7],[1e-05,4.5]]}}</script>
+<script id="seed" type="application/json">{"Щавелевая":{"pka":[1.25,4.27],"rows":[[0.001,300],[0.0007,214],[0.0005,157.9],[0.0003,100.7],[0.0001,39.9],[7e-05,29.5],[5e-05,22.4],[3e-05,15.5],[1e-05,5.4]]},"Янтарная":{"pka":[4.21,5.64],"rows":[[0.001,85.2],[0.0007,69.6],[0.0005,57.3],[0.0003,42.4],[0.0001,21.3],[7e-05,16.8],[5e-05,13.2],[3e-05,9.1],[1e-05,4.3]]},"Яблочная":{"pka":[3.459,5.097],"rows":[[0.001,179.2],[0.0007,137.4],[0.0005,109.6],[0.0003,76.4],[0.0001,33.4],[7e-05,25.4],[5e-05,19.4],[3e-05,12.8],[1e-05,5.8]]},"Глутаровая":{"pka":[4.34,5.27],"rows":[[0.001,75.8],[0.0007,61.9],[0.0005,56.1],[0.0003,38.4],[0.0001,20],[7e-05,16.75],[5e-05,13.2],[3e-05,9.1],[1e-05,5.7]]},"Уксусная":{"pka":[4.757],"rows":[[0.001,52],[0.0007,42.2],[0.0005,35.3],[0.0003,26.5],[0.0001,13.8],[7e-05,11.2],[5e-05,9.3],[3e-05,6.7],[1e-05,4]]},"Муравьиная":{"pka":[3.75],"rows":[[0.001,152.1],[0.0007,111],[0.0005,89.4],[0.0003,60],[0.0001,28.9],[7e-05,22.1],[5e-05,18],[3e-05,11.3],[1e-05,4.6]]},"Миндальная":{"pka":[3.407],"rows":[[0.001,180],[0.0007,136.2],[0.0005,108],[0.0003,72.1],[0.0001,31],[7e-05,23.1],[5e-05,17.4],[3e-05,12.3],[1e-05,3.6]]},"Лимонная":{"pka":[3.13,4.76,6.4],"rows":[[0.001,220],[0.0007,166],[0.0005,132],[0.0003,89.5],[0.0001,36.4],[7e-05,29.1],[5e-05,21.9],[3e-05,14.3],[1e-05,5.7]]},"Малоновая":{"pka":[2.847,5.696],"rows":[[0.001,281],[0.0007,203],[0.0005,153],[0.0003,99.8],[0.0001,37.6],[7e-05,26.9],[5e-05,19.7],[3e-05,10.3],[1e-05,5.1]]},"Пропионовая":{"pka":[4.88],"rows":[[0.001,42.4],[0.0007,35.2],[0.0005,29.3],[0.0003,22.1],[0.0001,13.8],[7e-05,9.9],[5e-05,8.5],[3e-05,6],[1e-05,3.3]]},"Винная":{"pka":[3.03,4.37],"rows":[[0.001,247],[0.0007,186.4],[0.0005,142],[0.0003,98.6],[0.0001,43.9],[7e-05,33.9],[5e-05,26.2],[3e-05,17.3],[1e-05,7.6]]},"Адипиновая":{"pka":[4.42,5.42],"rows":[[0.001,66.6],[0.0007,54.9],[0.0005,45.5],[0.0003,34.6],[0.0001,18.1],[7e-05,14.7],[5e-05,13.1],[3e-05,8.7],[1e-05,4.5],[0.0015,88.3],[0.002,100.2],[0.004,142.6],[0.0025,109.3],[0.003,119.1]],"instrumentReady":[9,10,11]}}</script>
 <script id="sources" type="application/json">{"Щавелевая":{"url":"https://slunik.slu.se/kursfiler/MV0218/20103.1920/Essington_1st_edition.pdf","label":"Essington, Soil and Water Chemistry, табл. 5.9","range":"‘Щавелевая’!A4:A12, B4:B12"},"Янтарная":{"url":"https://slunik.slu.se/kursfiler/MV0218/20103.1920/Essington_1st_edition.pdf","label":"Essington, Soil and Water Chemistry, табл. 5.9","range":"‘Янтарная’!A4:A12, C4:C12"},"Яблочная":{"url":"https://chem.libretexts.org/Ancillary_Materials/Reference/Reference_Tables/Equilibrium_Constants/E5:_Acid_Dissociation_Constants_of_Organics","label":"Chemistry LibreTexts, Acid Dissociation Constants of Organics","range":"‘Яблочная’!A4:A12, C4:C12"},"Глутаровая":{"url":"https://bisakimia.com/wp-content/uploads/2025/03/vogels-textbook-of-quantitative-chemical-analysis-5th-ed-g-h-jeffery.pdf","label":"Vogel’s Textbook of Quantitative Chemical Analysis, прил. 7","range":"‘Глутаровая’!A3:A11, B3:B11"},"Уксусная":{"url":"https://chem.libretexts.org/Ancillary_Materials/Reference/Reference_Tables/Equilibrium_Constants/E5:_Acid_Dissociation_Constants_of_Organics","label":"Chemistry LibreTexts, Acid Dissociation Constants of Organics","range":"‘Уксусная’!A3:A11, B3:B11"},"Муравьиная":{"url":"https://slunik.slu.se/kursfiler/MV0218/20103.1920/Essington_1st_edition.pdf","label":"Essington, Soil and Water Chemistry, табл. 5.9","range":"‘Муравьиная’!A4:A12, C4:C12"},"Миндальная":{"url":"https://journals.indianapolis.iu.edu/index.php/ias/article/download/8615/8718","label":"Mandelic Acid: Limiting Conductance and Ionization Constant, 25 °C","range":"‘Миндальная’!A4:A12, B4:B12"},"Лимонная":{"url":"https://bisakimia.com/wp-content/uploads/2025/03/vogels-textbook-of-quantitative-chemical-analysis-5th-ed-g-h-jeffery.pdf","label":"Vogel’s Textbook of Quantitative Chemical Analysis, прил. 7","range":"‘Лимонная’!A4:A12, B4:B12"},"Малоновая":{"url":"https://chem.libretexts.org/Ancillary_Materials/Reference/Reference_Tables/Equilibrium_Constants/E5:_Acid_Dissociation_Constants_of_Organics","label":"Chemistry LibreTexts, Acid Dissociation Constants of Organics","range":"‘Малоновая’!A3:A11, B3:B11"},"Пропионовая":{"url":"https://bisakimia.com/wp-content/uploads/2025/03/vogels-textbook-of-quantitative-chemical-analysis-5th-ed-g-h-jeffery.pdf","label":"Vogel’s Textbook of Quantitative Chemical Analysis, прил. 7","range":"‘Пропионовая’!A3:A11, D3:D11"},"Винная":{"url":"https://bisakimia.com/wp-content/uploads/2025/03/vogels-textbook-of-quantitative-chemical-analysis-5th-ed-g-h-jeffery.pdf","label":"Vogel’s Textbook of Quantitative Chemical Analysis, прил. 7","range":"‘Винная ’!A3:A11, B3:B11"},"Адипиновая":{"url":"https://chem.libretexts.org/Ancillary_Materials/Reference/Reference_Tables/Equilibrium_Constants/E5:_Acid_Dissociation_Constants_of_Organics","label":"Chemistry LibreTexts, Acid Dissociation Constants of Organics","range":"‘Адипиновая’!A3:A11, B3:B11"}}</script>
 <script id="ion-data" type="application/json">{"refs":{"nist":["NIST SP 260-142, §1.3","https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication260-142.pdf"],"handbook":["Perry’s Chemical Engineers’ Handbook, табл. 8.32","https://www-chemistry.univer.kharkov.ua/files/63847_8.pdf"],"diffusion":["Aqion, таблица органических анионов","https://www.aqion.de/site/194"],"citric":["Apelblat, Citric Acid, §2.13","https://ndl.ethernet.edu.et/bitstream/123456789/70732/1/2014_Book_CitricAcid.pdf"],"mandelic":["Mandelic Acid: Limiting Conductance, табл. II","https://journals.indianapolis.iu.edu/index.php/ias/article/download/8615/8718"],"malonic":["Apelblat, Conductances of aqueous malonic acid","https://doi.org/10.1016/S0167-7322(97)00056-1"],"succinate":["Conductance Studies of Aqueous Succinic Acid (значение Davies для HSucc⁻)","https://www.academia.edu/118199961/Conductance_Studies_of_Aqueous_Succinic_Acid"],"tartaric":["Bešter-Rogač et al., Acidic tartrates","https://doi.org/10.1023/A:1022671414577"],"glutaric":["Apelblat et al., Glutaric acid and glutarates","https://doi.org/10.1007/s10953-007-9161-2"],"adipic":["Kinart, Conductance studies of sodium salts of dicarboxylic acids","https://doi.org/10.1016/j.molliq.2021.116262"]},"ions":{"Щавелевая":[["HC₂O₄⁻",40.2,"diffusion"],["C₂O₄²⁻",148.3,"diffusion"]],"Янтарная":[["HSucc⁻",31.9,"succinate"],["Succ²⁻",117.6,"diffusion"]],"Яблочная":[["HMal⁻",null,null],["Mal²⁻",117.6,"diffusion"]],"Глутаровая":[["HGlut⁻",null,"glutaric"],["Glut²⁻",105.2,"handbook"]],"Уксусная":[["Ac⁻",40.9,"diffusion"]],"Муравьиная":[["HCOO⁻",54.6,"diffusion"]],"Миндальная":[["Mdl⁻",30.84,"mandelic","380,65 − 349,81"]],"Лимонная":[["H₂Cit⁻",35.87,"citric"],["HCit²⁻",100.76,"citric","2 × 50,38"],["Cit³⁻",216.15,"citric","3 × 72,05"]],"Малоновая":[["HMalon⁻",39.1,"malonic"],["Malon²⁻",129.4,"malonic","2 × 64,7"]],"Пропионовая":[["Prop⁻",35.8,"handbook"]],"Винная":[["HTar⁻",null,"tartaric"],["Tar²⁻",119.3,"diffusion"]],"Адипиновая":[["HAd⁻",null,null],["Ad²⁻",null,"adipic"]]}}</script>
+<script src="xlsx-export.js"></script>
 <script src="./calibration.js"></script>
 </body>
 </html>

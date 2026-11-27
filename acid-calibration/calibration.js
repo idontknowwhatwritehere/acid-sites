@@ -119,18 +119,59 @@ const ionData=JSON.parse(document.getElementById('ion-data').textContent);
 const clone = value => JSON.parse(JSON.stringify(value));
 const storageKey = 'ibu-bn-calibration-v1';
 const defaultBlank = 1.7;
+const instrumentFactor = 1.048729;
+const instrumentKey = 'ibu-bn-instrument-correction-cancelled-v1';
+let instrumentCorrectionCancelled = false;
+try { instrumentCorrectionCancelled = localStorage.getItem(instrumentKey)==='true'; } catch {}
+const tenthsReading = new Intl.NumberFormat('en-US',{maximumFractionDigits:1,useGrouping:false});
+const wholeReading = new Intl.NumberFormat('en-US',{maximumFractionDigits:0,useGrouping:false});
+function instrumentReading(value,alreadyCorrected=false) {
+  if(value===null||value<0)return value;
+  // Remove binary floating-point noise before rounding the scaled reading.
+  const measured=instrumentCorrectionCancelled||alreadyCorrected?value:Number((value*instrumentFactor).toPrecision(15));
+  if(!Number.isFinite(measured))return null;
+  return roundReading(measured);
+}
+function roundReading(value) {
+  return Number((Math.abs(value)<100?tenthsReading:wholeReading).format(value));
+}
+function formatReading(value) {
+  return Number.isFinite(value)?value.toFixed(value<100?1:0).replace('.',','):'—';
+}
+function displayReading(value,alreadyCorrected) {
+  const raw=parseNumber(value);
+  const measured=instrumentReading(raw,alreadyCorrected);
+  return raw===null||raw<0||measured===null?inputText(value):formatReading(measured);
+}
+function inputReading(value,alreadyCorrected) {
+  const reading=parseNumber(value);
+  // Store readings on the original scale so both display modes recover the same measurement.
+  return reading===null||instrumentCorrectionCancelled||alreadyCorrected?value:String(reading/instrumentFactor);
+}
 const records = Object.assign(Object.create(null),clone(seed));
 let stored = {};
 try { stored = JSON.parse(localStorage.getItem(storageKey) || '{}') || {}; } catch {}
 for (const [name,candidate] of Object.entries(stored)) {
   if (!candidate || !Array.isArray(candidate.rows) ||
-      (Object.hasOwn(seed,name) && candidate.rows.length<seed[name].rows.length) ||
+      (Object.hasOwn(seed,name) && candidate.rows.length<(name==='Адипиновая'?9:seed[name].rows.length)) ||
       !candidate.rows.every(row=>Array.isArray(row)&&row.length===2) ||
       !Array.isArray(candidate.pka) || candidate.pka.length<1 || candidate.pka.length>3) continue;
   if (!Object.hasOwn(seed,name)) names.push(name);
+  if(name==='Адипиновая'&&!Array.isArray(candidate.instrumentReady)){
+    const adipic=seed[name];
+    candidate.instrumentReady=[];
+    const updated=adipic.rows.filter(([c])=>c>=0.001);
+    for(const row of updated){
+      const existing=candidate.rows.findIndex(([c])=>parseNumber(c)===row[0]);
+      const index=existing<0?candidate.rows.length:existing;
+      candidate.rows[index]=[...row];
+      const seedIndex=adipic.rows.indexOf(row);
+      if(adipic.instrumentReady.includes(seedIndex))candidate.instrumentReady.push(index);
+    }
+  }
   records[name]=candidate;
 }
-let active = names.includes('Лимонная') ? 'Лимонная' : names[0];
+let active = 'Адипиновая';
 let selected = {kind:'h',row:0,step:0};
 let drillOrigin = null;
 let probeText = '';
@@ -148,9 +189,14 @@ const ionEntries = name => Object.hasOwn(ionData.ions,name) ? ionData.ions[name]
 const tabColor = name => /^#[0-9a-f]{6}$/i.test(records[name].color) ? records[name].color : '';
 let colorAcid;
 function persist() {
-  try { localStorage.setItem(storageKey, JSON.stringify(records)); } catch {}
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(records));
+    return true;
+  } catch {
+    return false;
+  }
 }
-function compute(name, {fitOnly=false}={}) {
+function compute(name) {
   const record = records[name];
   const blankText = String(record.blank ?? defaultBlank).trim();
   const blankValue = parseNumber(blankText);
@@ -165,29 +211,107 @@ function compute(name, {fitOnly=false}={}) {
   const missing=entries.filter((_,i)=>!(lambdaValues[i]>0));
   const lambdas=wantIons&&!missing.length?lambdaValues:null;
   const rows = record.rows.map(([conc, reading], i) => {
-    const c = parseNumber(conc), y = parseNumber(reading);
+    const c = parseNumber(conc), raw = parseNumber(reading);
+    const measured=instrumentReading(raw,record.instrumentReady?.includes(i));
     const solved=k&&c!==null&&c>0?hydrogen(c,k,water):null;
     const h=Number.isFinite(solved)&&solved>0?solved:null;
     const theory=h!==null&&lambdas?ionicConductivity(h,c,species(h,k),water,lambdas):null;
     const x=theory?theory.value:h;
-    return {i,c,raw:y,y:y===null?null:y-blank,h,x,theory};
+    return {i,c,raw,measured,y:measured===null?null:measured-blank,h,x,theory};
   });
-  const points = rows.filter(row => row.x !== null && Number.isFinite(row.x) && row.raw !== null && row.raw >= 0);
+  const points = rows.filter(row => row.x !== null && Number.isFinite(row.x) && row.measured !== null && row.measured >= 0);
   const line = fit(points);
-  if(fitOnly) return {points,line,lambdas};
-  for (const row of rows) row.back = row.raw !== null && row.raw >= 0 ? invert(row.y,line,k,water,lambdas) : null;
+  for (const row of rows) row.back = row.measured !== null && row.measured >= 0 ? invert(row.y,line,k,water,lambdas) : null;
   for (const point of points) point.diagnostics=diagnose(point,line);
   return {k,rows,points,line,blank,hasBlank,blankInvalid,water,wantIons,lambdas,missing,entries};
 }
-function tabStatus(points) {
-  const statuses=new Set(points.map(point=>point.diagnostics.quality));
-  if(statuses.has('repeat'))return ['#ffc1c8','Есть точки для повторного измерения'];
-  if(statuses.has('influence')||statuses.has('warning'))return ['#ffe08b','Есть точки для проверки'];
-  if(points.length&&!statuses.has('unknown'))return ['#a9e5c2','Все точки в норме'];
-  return ['#d9e2eb','Недостаточно данных для оценки'];
+// Raw HexBn conductivity extrema across all source series, in µS/cm.
+const hexBnRanges={"Муравьиная":[31.9,167.1],"Уксусная":[17,63.2],"Пропионовая":[21,87.3],"Яблочная":[22.9,120.4],"Щавелевая":[61.1,521],"Миндальная":[63.5,347],"Лимонная":[18.62,217],"Винная":[24.8,125],"Малоновая":[46.3,497],"Глутаровая":[32.3,114.6],"Янтарная":[55.5,132.6],"Адипиновая":[42.2,121.8]};
+function appendHexBnStandards() {
+  const allowed=[0.001,0.0015,0.002,0.0025,0.003,0.004,0.005,0.006,0.007,0.0075,0.008,0.009];
+  for(const [name,[requiredMin,requiredMax]] of Object.entries(hexBnRanges)){
+    const record=records[name];
+    if(!record||record.hexBnPlanVersion===5)continue;
+    const {points,line,blank,k,water,lambdas}=compute(name);
+    if(!line||!(line.a>0))continue;
+    if(record.hexBnPlanned?.length){
+      const corrected=new Set(record.instrumentReady);
+      const retained=record.rows.flatMap((row,index)=>
+        record.hexBnPlanned.includes(parseNumber(row[0]))&&String(row[1]).trim()===''
+          ?[]:[{row,corrected:corrected.has(index)}]);
+      record.rows=retained.map(entry=>entry.row);
+      if(record.instrumentReady)record.instrumentReady=retained.flatMap((entry,index)=>
+        entry.corrected?[index]:[]);
+    }
+    record.hexBnPlanVersion=5;
+    record.hexBnPlanned=[];
+    const measured=points.map(point=>point.measured);
+    const min=Math.min(...measured), max=Math.max(...measured);
+    const occupied=new Set(record.rows.map(([c])=>parseNumber(c)));
+    const expected=concentration=>{
+      const h=hydrogen(concentration,k,water);
+      const x=lambdas?ionicConductivity(h,concentration,species(h,k),water,lambdas).value:h;
+      return line.a*x+line.b+blank;
+    };
+    const options=allowed.filter(c=>!occupied.has(c)).map(c=>({c,reading:expected(c)}));
+    function addStandards(standards) {
+      for(const {c} of standards){
+        record.hexBnPlanned.push(c);
+        record.rows.push([c,'']);
+      }
+    }
+    if(requiredMin<min){
+      const lower=options.filter(({reading})=>reading<min);
+      const edge=lower.findLastIndex(({reading})=>reading<=requiredMin*0.95);
+      if(edge>=0)addStandards(lower.slice(edge,edge+3));
+    }
+    if(requiredMax>max){
+      const upper=options.filter(({reading})=>reading>max);
+      const edge=upper.findIndex(({reading})=>reading>=requiredMax*1.05);
+      if(edge>=0){
+        const last=Math.min(upper.length-1,Math.max(2,edge));
+        const middle=Math.ceil(last/2);
+        addStandards(upper.filter((_,index)=>index===0||index===middle||index===last));
+      }
+    }
+  }
 }
-function paintTab(item,name,points) {
-  const [automatic,status]=tabStatus(points);
+const greenThreshold=0.999;
+function tabShade(scores,r2,light,dark) {
+  const ratio=scores.length===1?1:scores.indexOf(r2)/(scores.length-1);
+  return '#'+light.map((channel,index)=>
+    Math.round(channel+(dark[index]-channel)*ratio).toString(16).padStart(2,'0')).join('');
+}
+function hasRepeat(result) {
+  return result.points.some(point=>point.diagnostics.quality==='repeat');
+}
+function tabStatus(result,greenScores,redScores) {
+  const r2=result.line?.r2;
+  if(!Number.isFinite(r2))return ['#d9e2eb','Недостаточно данных для оценки R²'];
+  const score='R² '+fmt(r2,9)+' · ';
+  if(r2>greenThreshold){
+    const shade=tabShade(greenScores,r2,[211,245,224],[25,124,70]);
+    return [shade,score+'зелёный по сравнению с другими кислотами'];
+  }
+  if(hasRepeat(result)){
+    const shade=tabShade(redScores,r2,[255,193,200],[158,30,48]);
+    return [shade,score+'Есть точки для повторного измерения'];
+  }
+  const statuses=new Set(result.points.map(point=>point.diagnostics.quality));
+  if(statuses.has('influence'))return ['#ffca9e',score+'Есть сильно влияющие точки'];
+  return ['#ffe08b',score+(statuses.has('warning')?'Есть точки для проверки':'R² не выше 0,999')];
+}
+function paintTabs(calibrations) {
+  const greenScores=[...new Set(calibrations.map(({result})=>result.line?.r2)
+    .filter(r2=>Number.isFinite(r2)&&r2>greenThreshold))].sort((a,b)=>a-b);
+  const redScores=[...new Set(calibrations.filter(({result})=>hasRepeat(result))
+    .map(({result})=>result.line?.r2)
+    .filter(r2=>Number.isFinite(r2)&&r2<=greenThreshold))].sort((a,b)=>b-a);
+  for(const {name,index,result} of calibrations){
+    paintTab(el('tabs').children[index],name,tabStatus(result,greenScores,redScores));
+  }
+}
+function paintTab(item,name,[automatic,status]) {
   const color=tabColor(name)||automatic;
   const rgb=color.slice(1).match(/../g).map(hex=>{
     const channel=parseInt(hex,16)/255;
@@ -196,6 +320,7 @@ function paintTab(item,name,points) {
   const luminance=0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2];
   item.classList.add('custom-color');
   item.style.setProperty('--tab-color',color);
+  item.dataset.autoColor=automatic;
   item.style.setProperty('--tab-ink',luminance>0.179?'#000':'#fff');
   const tab=item.querySelector('.tab');
   tab.title=status;
@@ -216,13 +341,12 @@ function showTabs() {
     menu.onclick=()=>{
       colorAcid=name;
       el('color-title').textContent='Настройки вкладки «'+name+'»';
-      el('tab-color').value=tabColor(name)||tabStatus(compute(name).points)[0];
+      el('tab-color').value=tabColor(name)||item.dataset.autoColor;
       el('reset-color').disabled=!tabColor(name);
       el('delete-acid').hidden=Object.hasOwn(seed,name);
       el('color-dialog').showModal();
     };
     item.append(node,menu);
-    paintTab(item,name,compute(name).points);
     return item;
   }));
   el('tabs').scrollLeft=scrollLeft;
@@ -272,7 +396,9 @@ function showInputs() {
     wrap.append(label,input,ka);
     return wrap;
   }));
+  el('save-status').textContent='';
   el('rows').replaceChildren(...record.rows.map((row, i) => {
+    const alreadyCorrected=record.instrumentReady?.includes(i);
     const tr = make('tr');
     const number = make('th',{scope:'row'});
     const numberContent=make('span',{className:'row-number',textContent:i+1});
@@ -282,6 +408,8 @@ function showInputs() {
       remove.onclick=()=>{
         if(row.some(value=>String(value).trim())&&!confirm('Удалить строку '+(i+1)+' и её измерение?'))return;
         record.rows.splice(i,1);
+        if(record.instrumentReady)record.instrumentReady=record.instrumentReady.filter(index=>index!==i)
+          .map(index=>index>i?index-1:index);
         persist();
         drillOrigin=null;
         const next=Math.max(0,Math.min(i,record.rows.length-1));
@@ -297,14 +425,16 @@ function showInputs() {
     ['conc','reading','h','back','theory'].forEach((kind, col) => {
       const td = make('td');
       const control = col < 2
-        ? make('input',{value:inputText(row[col]),type:'text',inputMode:'decimal',spellcheck:false})
+        ? make('input',{value:col===1?displayReading(row[col],alreadyCorrected):inputText(row[col]),type:'text',inputMode:'decimal',spellcheck:false})
         : make('button',{type:'button',className:'value'});
       control.id = kind+'-'+i;
       control.setAttribute('aria-label','Стандарт '+(i+1)+' · '+['концентрация','показание','расчёт H⁺','концентрация по тренду','теоретическая проводимость'][col]);
       control.onfocus = () => select(kind,i);
-      if (col < 2) control.oninput = () => { row[col]=control.value; persist(); refresh(); };
+      if (col < 2) control.oninput = () => { row[col]=col===1?inputReading(control.value,alreadyCorrected):control.value; persist(); refresh(); };
       else control.onclick = () => select(kind,i);
-      td.append(control); tr.append(td);
+      if(kind==='reading')control.onblur=()=>{control.value=displayReading(row[col],alreadyCorrected);};
+      td.append(control);
+      tr.append(td);
     });
     return tr;
   }));
@@ -326,8 +456,8 @@ function paintPoint() {
 }
 function updateMainFormula({water,lambdas,wantIons,missing}) {
   const useIons=Boolean(lambdas);
-  el('main-formula-title').textContent=water?'Основная формула с автопротолизом воды':'Основная формула для расчёта [H⁺]';
-  el('main-water-term').toggleAttribute('hidden',!water);
+  document.querySelectorAll('.inverse-h').forEach(term=>term.toggleAttribute('hidden',water));
+  document.querySelectorAll('.inverse-h-water').forEach(term=>term.toggleAttribute('hidden',!water));
   el('main-conductivity').hidden=!useIons;
   el('main-hydroxide-term').toggleAttribute('hidden',!water||!useIons);
   el('main-theory-baseline').toggleAttribute('hidden',!water||!useIons);
@@ -342,7 +472,8 @@ function refresh() {
   try {
     localStorage.setItem('ibu-bn-model-v1',JSON.stringify({water:model.water,ions:model.wantIons}));
   } catch {}
-  paintTab(el('tabs').children[names.indexOf(active)],active,model.points);
+  const calibrations=names.map((name,index)=>({name,index,result:name===active?model:compute(name)}));
+  paintTabs(calibrations);
   updateMainFormula(model);
   records[active].pka.forEach((value, i) => {
     const parsed=parseNumber(value);
@@ -353,6 +484,10 @@ function refresh() {
     const conc=el('conc-'+row.i), reading=el('reading-'+row.i);
     conc.setAttribute('aria-invalid',String(conc.value.trim()!=='' && !(row.c>0)));
     reading.setAttribute('aria-invalid',String(reading.value.trim()!=='' && (row.raw===null || row.raw<0)));
+    const planned=records[active].hexBnPlanned?.includes(row.c)&&row.raw===null;
+    const expected=planned&&model.line&&row.x!==null?model.line.a*row.x+model.line.b+model.blank:null;
+    reading.placeholder=Number.isFinite(expected)?'Ожид. '+formatReading(expected):'';
+    reading.title=planned?'План HexBn. Введите измеренную κ, мкСм/см.':'';
     el('h-'+row.i).textContent=fmt(row.h,6);
     el('back-'+row.i).textContent=sci(row.back?.c);
     el('theory-'+row.i).textContent=fmt(row.theory?.value,6);
@@ -370,12 +505,12 @@ function refresh() {
     model.lambdas?'Ось X: расчётная проводимость всех ионов.':'Ось X: расчётная [H⁺].';
   el('blank').setAttribute('aria-invalid',String(model.blankInvalid));
   el('blank-state').textContent=model.blankInvalid?'Введи неотрицательное число.':
-    model.hasBlank?'Вычитается из стандартов и пробы. Вода: 1,5–2,0.':'Без поправки. Вода: 1,5–2,0.';
+    model.hasBlank?'Вычитается из стандартов и пробы.':'Фон не задан.';
   el('notice').textContent=!model.k?'Проверь pKa: для каждой ступени нужно число.':
     model.points.length < model.rows.length ? 'Строки с пустыми или некорректными данными исключены из тренда.' :
     model.line && !(model.line.a>0) ? 'Обратный пересчёт требует положительного наклона тренда.' : '';
   renderChart();
-  renderAdditionalCharts();
+  renderAdditionalCharts(calibrations);
   showFormula();
 }
 function mount() {
@@ -390,20 +525,18 @@ function axisCeiling(value) {
 function hidePointTooltip() {
   const tooltip=el('point-tooltip');
   tooltip.hidden=true;
-  document.querySelector('.point[aria-describedby="point-tooltip"]')?.removeAttribute('aria-describedby');
+  document.querySelector('[aria-describedby="point-tooltip"]')?.removeAttribute('aria-describedby');
 }
 function showPointTooltip(node,point) {
   const {line,points,hasBlank,lambdas}=model;
   const d=point.diagnostics;
-  const tooltip=el('point-tooltip');
-  hidePointTooltip();
   const units=' мкСм/см';
   const quantity=(value,unit='')=>Number.isFinite(value)?fmt(value,6)+unit:'—';
   const values=[
     ['C стандарта',sci(point.c)+' моль/л'],
     ['[H⁺]',fmt(point.h,6)+' мкмоль/л'],
     ...(lambdas ? [['κ расчётная (X)',fmt(point.x,6)+units]] : []),
-    ['Показание κ',fmt(point.raw,6)+units],
+    ['Показание κ',formatReading(point.measured)+units],
     ...(hasBlank ? [['κ − κ₀ (Y)',fmt(point.y,6)+units]] : []),
     ...(line ? [
       ['Расчётная κ по тренду',quantity(d.predicted,units)],
@@ -422,12 +555,18 @@ function showPointTooltip(node,point) {
     ] : []),
     ['Точек в калибровке',String(points.length)]
   ];
+  showChartTooltip(node,'Стандарт '+(point.i+1)+' · '+diagnosticLabels[d.quality],values,d.reason);
+}
+function showChartTooltip(node,title,values,note) {
+  const tooltip=el('point-tooltip');
+  hidePointTooltip();
   const details=make('dl');
   details.append(...values.flatMap(([label,value])=>[
     make('dt',{textContent:label}),make('dd',{textContent:value})
   ]));
-  tooltip.replaceChildren(make('strong',{textContent:'Стандарт '+(point.i+1)+' · '+diagnosticLabels[d.quality]}),
-    make('p',{className:'detail',textContent:d.reason}),details);
+  tooltip.replaceChildren(make('strong',{textContent:title}));
+  if(note)tooltip.append(make('p',{className:'detail',textContent:note}));
+  tooltip.append(details);
   tooltip.hidden=false;
   node.setAttribute('aria-describedby','point-tooltip');
   const anchor=node.getBoundingClientRect();
@@ -529,7 +668,7 @@ function drawAdditionalChart(id, {xLabel,yLabel,dots=[],curves=[],reference=[],l
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('class','plot');
   svg.setAttribute('viewBox','0 0 '+width+' '+height);
-  svg.setAttribute('role','img');
+  svg.setAttribute('role',dots.length?'group':'img');
   svg.setAttribute('aria-labelledby',id+'-title');
   svg.setAttribute('aria-label',xLabel+'; '+yLabel);
   function shape(tag,attributes,label,parent=svg) {
@@ -562,8 +701,25 @@ function drawAdditionalChart(id, {xLabel,yLabel,dots=[],curves=[],reference=[],l
       'stroke-dasharray':series.dash ?? 'none'},series.label);
   }
   for(const dot of dots){
-    const point=shape('circle',{class:'chart-dot',fill:chartColors[0],cx:px(dot.x),cy:py(dot.y),r:4.5});
-    shape('title',{},'Стандарт '+(dot.i+1)+' · '+formatTick(dot.x)+'; '+fmt(dot.y,6),point);
+    const title=dot.label ?? 'Стандарт '+(dot.i+1);
+    const point=shape('circle',{class:'chart-dot',fill:dot.color ?? chartColors[0],cx:px(dot.x),cy:py(dot.y),
+      r:dot.radius ?? 4.5,tabindex:0,role:'button','aria-label':title+' · '+formatTick(dot.x)+'; '+fmt(dot.y,6)});
+    if(dot.comparison)point.setAttribute('data-comparison','');
+    const show=()=>{
+      if(point.hasAttribute('aria-describedby')){
+        hidePointTooltip();
+        return;
+      }
+      const {values=[],note}=dot.describe?.() ?? standardPointDetails(model.rows[dot.i]);
+      showChartTooltip(point,title,[[xLabel,fmt(dot.x,7)],[yLabel,fmt(dot.y,7)],...values],note);
+    };
+    point.onclick=show;
+    point.onkeydown=event=>{
+      if(event.key==='Enter'||event.key===' '){
+        event.preventDefault();
+        show();
+      }
+    };
   }
   shape('text',{class:'axis-label',x:(left+right)/2,y:height-11,'text-anchor':'middle'},xLabel);
   const yMiddle=(top+bottom)/2;
@@ -572,17 +728,40 @@ function drawAdditionalChart(id, {xLabel,yLabel,dots=[],curves=[],reference=[],l
   host.replaceChildren(svg);
 }
 
-function renderAdditionalCharts() {
+function standardPointDetails(row, diagnostics=row.diagnostics, line=model.line, back=row.back) {
+  const quantity=(value,unit='')=>Number.isFinite(value)?fmt(value,6)+unit:'—';
+  const values=[
+    ['C стандарта',quantity(row.c,' моль/л')],
+    ['Измеренная κ',Number.isFinite(row.measured)?formatReading(row.measured)+' мкСм/см':'—'],
+    ['C по тренду',quantity(back?.c,' моль/л')],
+  ];
+  if(line&&diagnostics){
+    values.push(
+      ['κ по тренду',quantity(diagnostics.predicted,' мкСм/см')],
+      ['Остаток Δκ',quantity(diagnostics.residual,' мкСм/см')],
+      ['Относительный остаток κ',quantity(diagnostics.relative,'%')],
+      ['Ошибка пересчёта ΔC',quantity(diagnostics.concentrationError,' моль/л')],
+      ['Относительная ошибка C',quantity(diagnostics.concentrationPercent,'%')],
+      ['Стьюдентизированный остаток',quantity(diagnostics.student)],
+      ['Расстояние Кука',quantity(diagnostics.cook)],
+      ['R² тренда',quantity(line.r2)],
+    );
+  }
+  return {values,note:diagnostics?
+    diagnosticLabels[diagnostics.quality]+' · '+diagnostics.reason:undefined};
+}
+
+function renderAdditionalCharts(calibrations) {
   const {k,rows,points,line,lambdas}=model;
   const concentration='C стандарта, моль/л';
-  const signal='κ измеренная, мкСм/см';
+  const signal='κ, мкСм/см';
   const hydrogenLabel='[H⁺] расчётная, мкмоль/л';
   const theoryLabel='κ расчётная, мкСм/см';
   const standards=rows.filter(row=>row.c>0);
   const recovered=standards.filter(row=>row.back?.c>0);
   const dot=(row,x,y)=>({i:row.i,x,y});
   drawAdditionalChart('raw',{xLabel:concentration,yLabel:signal,
-    dots:standards.filter(row=>row.raw!==null&&row.raw>=0).map(row=>dot(row,row.c,row.raw))});
+    dots:standards.filter(row=>row.measured!==null&&row.measured>=0).map(row=>dot(row,row.c,row.measured))});
   drawAdditionalChart('error',{xLabel:concentration+' (лог. шкала)',yLabel:'Ошибка, %',logX:true,centerY:true,
     dots:recovered.map(row=>dot(row,row.c,100*(row.back.c/row.c-1))).filter(point=>Number.isFinite(point.y))});
   drawAdditionalChart('residual',{xLabel:lambdas?theoryLabel:hydrogenLabel,yLabel:'Остаток κ, мкСм/см',centerY:true,
@@ -599,8 +778,14 @@ function renderAdditionalCharts() {
       return {x,y:species(10**(6-x),k).fractions[index]*100};
     }),
   })):[];
+  const speciesLabels=formulas[pka.length-1];
+  const speciesDots=k?pka.map((x,i)=>{
+    const fractions=species(10**(6-x),k).fractions;
+    return {x,y:fractions[i]*100,label:'pKₐ'+['₁','₂','₃'][i]+' · '+speciesLabels[i],color:chartColors[i],
+      describe:()=>({values:speciesLabels.map((label,index)=>[label,fmt(fractions[index]*100,5)+'%'])})};
+  }):[];
   drawAdditionalChart('species',{xLabel:'pH',yLabel:'Доля формы, %',
-    xRange:[pHMin,pHMax],yRange:[0,100],curves:speciesCurves,empty:'Введи pKₐ для каждой ступени диссоциации.'});
+    xRange:[pHMin,pHMax],yRange:[0,100],curves:speciesCurves,dots:speciesDots,empty:'Введи pKₐ для каждой ступени диссоциации.'});
 
   const concentrations=standards.map(row=>row.c);
   const min=Math.min(...concentrations),max=Math.max(...concentrations);
@@ -618,26 +803,34 @@ function renderAdditionalCharts() {
     xRange:[0,recoveredMax],yRange:[0,recoveredMax],reference:[{x:0,y:0},{x:recoveredMax,y:recoveredMax}],
     dots:recovered.map(row=>dot(row,row.c,row.back.c))});
 
-  const calibrations=names.map((name,index)=>({name,index,
-    result:name===active?model:compute(name,{fitOnly:true})})).filter(({result})=>result.line);
-  const commonTheory=calibrations.length>0&&calibrations.every(({result})=>result.lambdas);
-  const comparison=calibrations.flatMap(({name,index,result})=>{
+  const fitted=calibrations.filter(({result})=>result.line);
+  const commonTheory=fitted.length>0&&fitted.every(({result})=>result.lambdas);
+  const comparison=fitted.flatMap(({name,index,result})=>{
     const refit=!commonTheory&&result.lambdas;
-    const calibrationPoints=refit?result.points.map(row=>({x:row.h,y:row.y})):result.points;
+    const calibrationPoints=refit?result.points.map(row=>({...row,x:row.h})):result.points;
     const calibrationLine=refit?fit(calibrationPoints):result.line;
     if(!calibrationLine)return [];
     const xValues=calibrationPoints.map(row=>row.x);
+    const color=chartColors[index%chartColors.length];
     return [{
-      color:chartColors[index%chartColors.length],dash:[undefined,'7 4','2 3'][Math.floor(index/4)%3],
+      color,dash:[undefined,'7 4','2 3'][Math.floor(index/4)%3],
       label:acidTitle(name),
       points:[Math.min(...xValues),Math.max(...xValues)].map(x=>({x,y:calibrationLine.a*x+calibrationLine.b})),
+      dots:calibrationPoints.map(row=>({
+        x:row.x,y:row.y,color,radius:3.2,comparison:true,
+        label:acidTitle(name)+' · стандарт '+(row.i+1),
+        describe:()=>{
+          const back=invert(row.y,calibrationLine,result.k,result.water,commonTheory?result.lambdas:null);
+          return standardPointDetails(row,diagnose({...row,back},calibrationLine),calibrationLine,back);
+        },
+      })),
     }];
   });
   const note=el('comparison-axis-note');
   note.hidden=!model.wantIons||commonTheory||!comparison.length;
   note.textContent='Для всех кислот использована ось [H⁺], поскольку для части калибровок не заданы все λ°.';
   drawAdditionalChart('comparison',{xLabel:commonTheory?theoryLabel:hydrogenLabel,
-    yLabel:'κ с учётом фона, мкСм/см',curves:comparison});
+    yLabel:'κ с учётом фона, мкСм/см',curves:comparison,dots:comparison.flatMap(series=>series.dots)});
 }
 
 function drill(kind) {
@@ -649,8 +842,8 @@ function drill(kind) {
 function chargeContext(data, line, k, origin) {
   const isProbe = origin === 'probe';
   if(origin === 'h'||origin === 'balance') return data.h!==null&&k ? {h:data.h,parts:species(data.h,k),ids:['h-'+data.i]} : null;
-  const raw=isProbe?parseNumber(probeText):data.raw;
-  const result=raw!==null&&raw>=0?invert(raw-model.blank,line,k,model.water,model.lambdas):null;
+  const measured=isProbe?instrumentReading(parseNumber(probeText)):data.measured;
+  const result=measured!==null&&measured>=0?invert(measured-model.blank,line,k,model.water,model.lambdas):null;
   return result ? {h:result.h,parts:result,ids:[isProbe?'probe':'reading-'+data.i,'slope-value','intercept-value',...(model.hasBlank?['blank']:[])]} : null;
 }
 function showFormula() {
@@ -806,7 +999,7 @@ function showNumeric(kind,data,line,k,step) {
   const concentration=value=>token(value,'input',['conc-'+i],'C стандарта '+(i+1),value<0.001);
   const hValue=()=>token(data.h,'result',['h-'+i],'[H⁺] стандарта '+(i+1));
   const reading=(raw,probe=false)=>token(raw,'signal',[probe?'probe':'reading-'+i],probe?'Показание пробы':'Показание стандарта '+(i+1));
-  const water=()=>token(model.blank,'signal',['blank'],'Измеренный фон воды κ₀');
+  const water=()=>token(model.blank,'signal',['blank'],'Фон воды κ₀');
   const a=()=>token(line.a,'fit',['slope-value'],'Наклон a');
   const b=()=>token(line.b,'fit',['intercept-value'],'Свободный член b');
   if(kind==='theory'&&data.theory) {
@@ -851,8 +1044,8 @@ function showNumeric(kind,data,line,k,step) {
   }else if(kind==='conc' && data.c!==null) {
     row(symbol('C'),' = ',concentration(data.c),' × ',scale(),' = ',token(data.c*1e6,'result',['conc-'+i],'C в мкмоль/л'),' мкмоль/л');
   }else if((kind==='reading'||kind==='blank') && data.raw!==null) {
-    if(model.hasBlank) row(symbol('κиспр'),' = ',symbol('κ'),' − ',symbol('κ₀'),' = ',reading(data.raw),' − ',water(),' = ',token(data.y,'result',['reading-'+i,'blank'],'Показание стандарта за вычетом фона'),' мкСм/см');
-    else row(symbol('κ'),' = ',reading(data.raw),' мкСм/см. Фон не задан.');
+    if(model.hasBlank) row(symbol('κиспр'),' = ',symbol('κ'),' − ',symbol('κ₀'),' = ',reading(data.measured),' − ',water(),' = ',token(data.y,'result',['reading-'+i,'blank'],'Показание стандарта за вычетом фона'),' мкСм/см');
+    else row(symbol('κ'),' = ',reading(data.measured),' мкСм/см. Фон не задан.');
   }else if((kind==='h'||kind==='balance') && data.h!==null && k) {
     const c=data.c*1e6;
     if(model.water||kind==='balance'){
@@ -890,14 +1083,14 @@ function showNumeric(kind,data,line,k,step) {
         token(line.r2,'result',['metric'],'R² на графике'));
   }else if(kind==='back'||kind==='probe') {
     const probe=kind==='probe';
-    const raw=probe?parseNumber(probeText):data.raw;
-    const result=raw!==null&&raw>=0?invert(raw-model.blank,line,k,model.water,model.lambdas):null;
+    const measured=probe?instrumentReading(parseNumber(probeText)):data.measured;
+    const result=measured!==null&&measured>=0?invert(measured-model.blank,line,k,model.water,model.lambdas):null;
     if(result){
       const source=probe?'probe':'reading-'+i;
       const hSources=[source,'slope-value','intercept-value',...(model.hasBlank?['blank']:[])];
       const h=()=>token(result.h,'fit',hSources,'[H⁺] пробы');
-      const adjusted=()=>token(raw-model.blank,'signal',[source,...(model.hasBlank?['blank']:[])],'Показание с поправкой на фон');
-      if(model.hasBlank) row(symbol('κиспр'),' = ',symbol('κ'),' − ',symbol('κ₀'),' = ',reading(raw,probe),' − ',water(),' = ',adjusted(),' мкСм/см');
+      const adjusted=()=>token(measured-model.blank,'signal',[source,...(model.hasBlank?['blank']:[])],'Показание с поправкой на фон');
+      if(model.hasBlank) row(symbol('κиспр'),' = ',symbol('κ'),' − ',symbol('κ₀'),' = ',reading(measured,probe),' − ',water(),' = ',adjusted(),' мкСм/см');
       const xSymbol=model.lambdas?'κтеор':'[H⁺]';
       const xToken=()=>model.lambdas?token(result.x,'fit',hSources,'κтеор по тренду'):h();
       row(symbol(xSymbol),' = (',symbol(model.hasBlank?'κиспр':'κ'),' − ',symbol('b'),') / ',symbol('a'),' ≈ (',adjusted(),' − (',b(),')) / ',a(),' ≈ ',xToken(),model.lambdas?' мкСм/см':' мкмоль/л');
@@ -909,7 +1102,7 @@ function showNumeric(kind,data,line,k,step) {
             token(result.num,'k',[...hSources,...kSources],'Числитель N',true,'num')),' ÷ ',scale(),' ≈ ',
           token(result.c,'result',probe?[]:['back-'+i],'Концентрация по тренду',true),' моль/л');
       if(!probe&&data.c>0)setNote('Отклонение от стандарта '+fmt(100*(result.c/data.c-1),4)+'%.');
-      if(probe && model.points.length && (raw<Math.min(...model.points.map(p=>p.raw))||raw>Math.max(...model.points.map(p=>p.raw)))) setNote('Показание вне диапазона стандартов.');
+      if(probe && model.points.length && (measured<Math.min(...model.points.map(p=>p.measured))||measured>Math.max(...model.points.map(p=>p.measured)))) setNote('Показание вне диапазона стандартов.');
     }else if(probe&&!probeText)row('Введи показание пробы.');
   }
   if(!host.childElementCount) row('Числа появятся, когда будут корректные исходные данные.');
@@ -923,12 +1116,8 @@ el('formula-back').onclick=()=>{
   }
 };
 el('mode').onchange=event=>select(event.target.value);
-function refreshModelMode() {
-  showTabs();
-  refresh();
-}
-el('water-mode').onchange=refreshModelMode;
-el('ion-mode').onchange=refreshModelMode;
+el('water-mode').onchange=refresh;
+el('ion-mode').onchange=refresh;
 el('model-toggle').onchange=event=>{
   advanced=event.currentTarget.checked;
   el('physics').hidden=!advanced;
@@ -941,17 +1130,90 @@ el('model-toggle').onchange=event=>{
     drillOrigin=null;
     paintSelection();
   }
-  refreshModelMode();
+  refresh();
 };
 
-el('probe').oninput=event=>{probeText=event.target.value; showFormula();};
+el('instrument-toggle').checked=instrumentCorrectionCancelled;
+el('instrument-toggle').onchange=event=>{
+  instrumentCorrectionCancelled=event.currentTarget.checked;
+  try { localStorage.setItem(instrumentKey,String(instrumentCorrectionCancelled)); } catch {}
+  el('probe').value=displayReading(probeText);
+  mount();
+};
+el('probe').oninput=event=>{probeText=inputReading(event.target.value); showFormula();};
+el('probe').onblur=event=>{event.target.value=displayReading(probeText);};
 el('metric').onclick=()=>select('r2');
 el('trend').onclick=()=>select('fit');
 window.addEventListener('scroll',hidePointTooltip,true);
 window.addEventListener('resize',hidePointTooltip);
 document.addEventListener('pointerdown',event=>{
-  if(!event.target.closest('.point'))hidePointTooltip();
+  if(!event.target.closest('.point,.chart-dot'))hidePointTooltip();
 });
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape')hidePointTooltip();
+});
+el('save-sheet').onclick=()=>{
+  el('save-status').textContent=persist()?'Сохранено в этом браузере.':'Браузер не разрешил сохранить данные.';
+};
+function exportChoice(value,text,checked,quality) {
+  const label=make('label');
+  if(quality)label.dataset.quality=quality;
+  label.append(make('input',{type:'checkbox',value,checked}),text);
+  return label;
+}
+const exportColors=Object.entries(diagnosticLabels).map(([quality,label])=>
+  exportChoice(quality,label,['warning','influence','repeat'].includes(quality),quality));
+el('export-colors').append(...exportColors);
+const exportAcids=el('export-acids');
+const checkedValues=container=>[...container.querySelectorAll('input:checked')].map(input=>input.value);
+el('export-errors').onclick=()=>{
+  const previous=new Map([...exportAcids.querySelectorAll('input')].map(input=>[input.value,input.checked]));
+  exportAcids.replaceChildren(...names.slice().sort((a,b)=>a.localeCompare(b,'ru'))
+    .map(name=>exportChoice(name,acidTitle(name),previous.get(name)??true)));
+  el('export-notice').textContent='';
+  el('export-dialog').showModal();
+};
+el('export-cancel').onclick=()=>el('export-dialog').close();
+for(const [id,checked] of [['export-all',true],['export-none',false]])
+  el(id).onclick=()=>exportAcids.querySelectorAll('input').forEach(input=>{input.checked=checked;});
+function calibrationExportRows(acids,colors,includePlanned) {
+  return acids.flatMap(name=>{
+    const {rows,points,line,blank}=compute(name);
+    const selected=points.filter(point=>colors.has(point.diagnostics.quality));
+    if(includePlanned&&line){
+      const concentrations=new Set(records[name].hexBnPlanned);
+      selected.push(...rows.filter(row=>row.raw===null&&row.x!==null&&
+        String(records[name].rows[row.i][1]).trim()===''&&concentrations.has(row.c)));
+    }
+    return selected.sort((a,b)=>b.c-a.c).map(point=>{
+      const predicted=line?line.a*point.x+line.b+blank:null;
+      return [acidTitle(name),point.c,Number.isFinite(predicted)?roundReading(predicted):null,point.measured];
+    });
+  });
+}
+el('export-form').onsubmit=event=>{
+  event.preventDefault();
+  const acids=checkedValues(exportAcids), colors=new Set(checkedValues(el('export-colors')));
+  const notice=el('export-notice');
+  const includePlanned=el('export-planned').checked;
+  if(!acids.length||(!colors.size&&!includePlanned)){
+    notice.textContent='Выбери хотя бы одну кислоту и отметь цвета точек или плановые стандарты.';
+    return;
+  }
+  const rows=calibrationExportRows(acids,colors,includePlanned);
+  if(!rows.length){
+    notice.textContent='Для выбранных кислот подходящих строк нет.';
+    return;
+  }
+  const file=calibrationWorkbook(rows);
+  const url=URL.createObjectURL(file);
+  const link=make('a',{href:url,download:'calibration-errors.xlsx'});
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  notice.textContent='Выгружено точек: '+rows.length+'.';
+};
 el('add-row').onclick=()=>{
   const rows=records[active].rows;
   rows.push(['','']);
@@ -995,7 +1257,7 @@ function saveTabColor(color) {
   else delete records[colorAcid].color;
   persist();
   el('color-dialog').close();
-  showTabs();
+  refresh();
   focusAcid(colorAcid,'.tab-menu');
 }
 el('color-form').onsubmit=event=>{
@@ -1034,24 +1296,26 @@ el('reset').onclick=()=>{
   }
 };
 const fractionParts = [
-  {part:el('main-h'),button:el('explain-h'),description:'h = [H⁺] — равновесная концентрация ионов водорода, которую находим из уравнения. В расчёте она выражена в мкмоль/л.'},
-  {part:el('main-c'),button:el('explain-c'),description:'C — известная общая концентрация кислоты в стандарте. Берём её из столбца A и умножаем на 10⁶, чтобы перевести из моль/л в мкмоль/л.'},
+  {key:'h',description:'h = [H⁺] — равновесная концентрация ионов водорода. Для обратного расчёта подставляем h, полученную по калибровке, в мкмоль/л.'},
+  {key:'c',description:'C — аналитическая концентрация кислоты, которую определяем по [H⁺]. Для стандарта её можно сравнить со значением в столбце A.'},
 
-  {part:el('main-numerator'),button:el('explain-n'),description:'N — числитель. Каждый вклад умножен на число протонов, отданных соответствующей формой кислоты: 1, 2 или 3.'},
-  {part:el('main-denominator'),button:el('explain-d'),description:'D — знаменатель. Это сумма вкладов всех форм кислоты, включая недиссоциированную. Отношение N/D показывает среднее число отданных протонов на молекулу кислоты.'},
+  {key:'n',description:'N — знаменатель в формуле для C. Каждый вклад умножен на число протонов, отданных соответствующей формой кислоты: 1, 2 или 3.'},
+  {key:'d',description:'D — числитель в формуле для C. Это сумма вкладов всех форм кислоты, включая недиссоциированную. Отношение N/D показывает среднее число отданных протонов на молекулу кислоты.'},
 ];
 let chosenFraction = null;
 function showFraction(active) {
   fractionParts.forEach(entry=>{
     const highlighted=String(entry===active);
-    entry.part.dataset.highlight=highlighted;
+    entry.parts.forEach(part=>{part.dataset.highlight=highlighted;});
     entry.button.dataset.highlight=highlighted;
     entry.button.setAttribute('aria-pressed',String(entry===chosenFraction));
   });
   el('fraction-explanation').textContent=active?.description || 'Выбери обозначение, чтобы увидеть его смысл.';
 }
 for(const entry of fractionParts){
-  for(const target of [entry.part,entry.button]){
+  entry.parts=[...document.querySelectorAll('[data-symbol='+entry.key+']')];
+  entry.button=el('explain-'+entry.key);
+  for(const target of [...entry.parts,entry.button]){
     target.addEventListener('pointerenter',()=>showFraction(entry));
     target.addEventListener('pointerleave',()=>showFraction(chosenFraction));
     target.addEventListener('click',()=>{
@@ -1060,6 +1324,7 @@ for(const entry of fractionParts){
     });
   }
 }
+appendHexBnStandards();
 if(location.hash==='#hexbn-calibrations'&&window.opener){
   const hexOrigin=location.origin;
   let savedMode={};

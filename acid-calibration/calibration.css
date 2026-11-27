@@ -18,7 +18,7 @@ main{padding:18px 26px 26px}.tabs{display:flex;overflow:auto;gap:4px;border-bott
 .formula-back{border:1px solid #b8ded3;border-radius:5px;background:var(--light);color:#115d52;padding:4px 8px;font-size:.8rem;font-weight:650}.num-token[data-drill]{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}.source-highlight{position:relative;z-index:1}.num-token[data-action]{cursor:pointer}.formula-back[hidden]{display:none}
 .main-formula{padding:14px 16px;border-bottom:1px solid var(--line)}.main-formula h3{font-size:.93rem}.main-formula p{font-size:.84rem;color:var(--muted)}.main-equation{margin:8px 0;overflow-x:auto;padding:8px 6px;background:#f4f9fc;border-radius:5px;color:var(--active);font-size:clamp(.94rem,2.7vw,1.25rem)}.main-equation math{margin:0}
 #slope-value,#intercept-value{display:inline-block}
-.fraction-part{cursor:pointer}.fraction-part[data-highlight="true"]{background:#e0ecfa;color:#1d4b87}.fraction-part#main-denominator[data-highlight="true"]{background:#e9dff5;color:#65418b}.fraction-controls{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0}.fraction-button{padding:4px 8px;border:1px solid #bcd0e7;border-radius:5px;color:#1d4b87;background:#f0f6fc;font-size:.81rem}.fraction-button#explain-d{border-color:#d7c8e9;color:#65418b;background:#f8f3fb}.fraction-button[data-highlight="true"]{background:#e0ecfa;border-color:#5388c4}.fraction-button#explain-d[data-highlight="true"]{background:#e9dff5;border-color:#9875b9}.fraction-explanation{margin:4px 0 8px}
+.fraction-part{cursor:pointer}.fraction-part[data-highlight="true"]{background:#e0ecfa;color:#1d4b87}.fraction-part[data-symbol="d"][data-highlight="true"]{background:#e9dff5;color:#65418b}.fraction-controls{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0}.fraction-button{padding:4px 8px;border:1px solid #bcd0e7;border-radius:5px;color:#1d4b87;background:#f0f6fc;font-size:.81rem}.fraction-button#explain-d{border-color:#d7c8e9;color:#65418b;background:#f8f3fb}.fraction-button[data-highlight="true"]{background:#e0ecfa;border-color:#5388c4}.fraction-button#explain-d[data-highlight="true"]{background:#e9dff5;border-color:#9875b9}.fraction-explanation{margin:4px 0 8px}
 .numeric{margin-top:12px}.symbol-button{display:inline;padding:0 2px;border:0;background:transparent;color:#115c51;font:inherit;font-weight:690;text-decoration:underline dotted;text-underline-offset:4px}.symbol-button:hover,.symbol-button[aria-pressed="true"]{background:#d9f0e8;border-radius:3px}.symbol-help,.numeric-note{color:var(--muted);font-size:.82rem;margin-top:7px}.symbol-help{border-left:2px solid #78aeaa;padding-left:8px}
 
 .number-with-label{display:inline-flex;flex-direction:column;align-items:center;vertical-align:top;line-height:1.35;margin:2px 2px 3px;max-width:100%}.number-with-label .num-token{margin:0}.number-label{display:block;color:var(--muted);font:500 .75rem/1.25 system-ui,sans-serif;text-align:center;max-width:9rem;white-space:normal;margin-top:2px}.num-token[data-tint="fixed"]{color:#495a6a;background:#e9eff3}.factor-breakdown{margin-top:8px;padding:8px 10px;background:#f2eefa;border:1px solid #e3d9f2;border-radius:5px}.physics{padding:8px 15px;border-bottom:1px solid var(--line);font-size:.8rem}.physics-options{display:flex;gap:6px 16px;flex-wrap:wrap}.physics-options label{display:flex;align-items:center;gap:5px;font-weight:650}.physics-options input{accent-color:var(--teal)}.ion-editor{margin-top:5px;color:var(--muted)}.ion-editor summary{cursor:pointer;color:#106759}.ion-fields{display:flex;gap:6px 10px;flex-wrap:wrap;margin-top:6px}.ion-fields label{display:flex;align-items:center;gap:4px}.ion-fields input{width:69px;padding:2px 4px;border:1px solid #cbd8e3;border-radius:4px;text-align:right;color:var(--blue)}.ion-fields a,.physics-refs a{color:#106759}.physics-refs{margin-top:4px;font-size:.75rem}.model-status{margin-top:3px;color:var(--muted)}.sheet [hidden]{display:none}.factor-breakdown h4{margin:0 0 4px;color:#5b4384;font-size:.81rem}.factor-breakdown .numeric-line{margin:0}
@@ -82,9 +82,20 @@ main{padding:18px 26px 26px}.tabs{display:flex;overflow:auto;gap:4px;border-bott
 .chart-wide .plot{max-height:420px}
 .chart-curve,.chart-reference{fill:none;stroke-width:2;vector-effect:non-scaling-stroke}
 .chart-reference{stroke:#667c90;stroke-dasharray:5 4}
-.chart-dot{stroke:#fff;stroke-width:1.2}
-.chart-dot:hover{r:6}
+.chart-dot{stroke:#fff;stroke-width:1.2;cursor:pointer}
+.chart-dot:hover,.chart-dot:focus-visible,.chart-dot[aria-describedby]{r:6;stroke:#162b3f;stroke-width:1.7}
+.chart-dot[data-comparison]{opacity:.68}
+.chart-dot[data-comparison]:is(:hover,:focus-visible,[aria-describedby]){opacity:1}
 .chart-series{list-style:none;display:flex;flex-wrap:wrap;gap:6px 15px;margin:0;padding:0 16px 13px;color:var(--muted);font-size:.84rem}
 .chart-series li{display:inline-flex;align-items:center;gap:5px}
 .chart-series li::before{content:"";width:16px;border-top:2px solid var(--series-color)}
 @media(max-width:760px){.additional-charts{grid-template-columns:1fr}.additional-charts .plot-wrap{padding-inline:4px}}
+.sheet-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.export-dialog{width:min(580px,calc(100% - 24px))}
+.export-dialog fieldset{margin:0;padding:8px 10px;border:1px solid var(--line);border-radius:5px}
+.export-dialog legend{padding:0 4px;font-size:.87rem;font-weight:680}
+.export-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,215px),1fr));gap:5px 10px}
+.export-dialog label{display:flex;align-items:center;gap:6px}
+.export-dialog input[type=checkbox]{width:auto;margin:0;accent-color:var(--teal)}
+.export-choices [data-quality]::before{content:"";width:9px;height:9px;background:var(--quality);border-radius:50%;flex:none}
+.export-selection{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
